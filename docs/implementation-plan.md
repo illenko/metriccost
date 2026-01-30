@@ -4,6 +4,8 @@
 
 This document provides a detailed implementation plan for the metriccost MVP based on the requirements defined in `concept.md`.
 
+> **Note:** This implementation focuses on **counts and storage size** (cardinality, MB/GB, sample counts) rather than USD cost estimates. Actual costs vary widely due to CUDs, discounts, and pricing models - users can apply their own cost calculations externally if needed.
+
 ---
 
 ## Phase 1: Project Setup & Foundation
@@ -24,7 +26,7 @@ This document provides a detailed implementation plan for the metriccost MVP bas
   │   ├── grafana/              # Grafana API client
   │   ├── storage/              # SQLite operations
   │   ├── collector/            # Data collection orchestration
-  │   ├── analyzer/             # Cost calculation & recommendations
+  │   ├── analyzer/             # Size calculation & recommendations
   │   ├── api/                  # REST API handlers
   │   └── scheduler/            # Background job scheduler
   ├── pkg/
@@ -74,7 +76,7 @@ type Config struct {
     Prometheus      PrometheusConfig
     Grafana         GrafanaConfig
     Collection      CollectionConfig
-    CostModel       CostModelConfig
+    SizeModel       SizeModelConfig
     Teams           map[string]TeamConfig
     Recommendations RecommendationsConfig
     Server          ServerConfig
@@ -96,7 +98,7 @@ type Config struct {
   - `metric_snapshots`
   - `recommendations`
   - `dashboard_stats`
-  - `cost_snapshots`
+  - `snapshots` (overall cardinality/size history)
 - [ ] Create repository interfaces for each entity
 - [ ] Implement data retention cleanup (90-day default)
 - [ ] Add database stats command support
@@ -152,7 +154,7 @@ type Client interface {
 - [ ] Add progress logging (processing X of Y metrics)
 - [ ] Implement batching to avoid overwhelming Prometheus
 - [ ] Store results in `metric_snapshots` table
-- [ ] Calculate and store cost snapshot in `cost_snapshots`
+- [ ] Calculate and store snapshot in `snapshots` table
 
 **Performance considerations:**
 - Batch metric queries (50 metrics per batch)
@@ -193,25 +195,24 @@ func (m *TeamMatcher) GetTeam(metricName string) string {
 
 ## Phase 3: Analysis Engine
 
-### 3.1 Cost Calculator
+### 3.1 Size Calculator
 
-**File:** `internal/analyzer/cost_calculator.go`
+**File:** `internal/analyzer/size_calculator.go`
 
 **Tasks:**
-- [ ] Implement cost formula from concept.md:
+- [ ] Implement storage size estimation:
   ```
-  cost = cardinality × samples_per_day × retention_days × bytes_per_sample × storage_cost_per_gb
+  estimated_size = cardinality × samples_per_day × retention_days × bytes_per_sample
   ```
 - [ ] Support configurable parameters:
-  - `bytes_per_sample`: default 2
-  - `storage_cost_per_gb`: default $0.10
+  - `bytes_per_sample`: default 2 bytes (Prometheus TSDB average)
   - `retention_days`: default 30
   - `scrape_interval`: default 15s → 5760 samples/day
-- [ ] Calculate per-metric monthly cost
-- [ ] Calculate team breakdown totals
+- [ ] Calculate per-metric storage size (MB/GB)
+- [ ] Calculate team breakdown totals (by cardinality and size)
 - [ ] Calculate trend (% change from previous scan)
 
-**Deliverable:** Accurate cost calculations
+**Deliverable:** Accurate size estimations
 
 ---
 
@@ -225,13 +226,13 @@ func (m *TeamMatcher) GetTeam(metricName string) string {
   2. **Unused metrics**: not in any Grafana dashboard queries
   3. **High-cardinality labels**: labels with >100 unique values
 - [ ] Implement priority scoring:
-  - HIGH: cardinality >10K AND usage <10 queries/day
+  - HIGH: cardinality >10K AND low usage
   - HIGH: metric not used at all
   - MEDIUM: potential for aggregation
   - LOW: optimization suggestions
-- [ ] Calculate potential savings per recommendation
+- [ ] Calculate potential size reduction per recommendation
 - [ ] Generate actionable descriptions and suggested actions
-- [ ] Filter recommendations by min_potential_savings threshold
+- [ ] Filter recommendations by min_size_impact threshold (e.g., >100MB)
 
 **Recommendation types:**
 ```go
@@ -252,7 +253,7 @@ const (
 **File:** `internal/analyzer/trends.go`
 
 **Tasks:**
-- [ ] Calculate daily/weekly cost trends
+- [ ] Calculate daily/weekly cardinality and size trends
 - [ ] Calculate per-metric trend (% change)
 - [ ] Support configurable trend periods (7d, 30d, 90d)
 - [ ] Handle missing data points gracefully
@@ -288,15 +289,15 @@ const (
 
 | Endpoint | Handler | Description |
 |----------|---------|-------------|
-| `GET /api/overview` | `overview.go` | Total metrics, cost, team breakdown |
+| `GET /api/overview` | `overview.go` | Total metrics, cardinality, size, team breakdown |
 | `GET /api/metrics` | `metrics.go` | List metrics with filtering/sorting |
 | `GET /api/recommendations` | `recommendations.go` | List recommendations by priority |
-| `GET /api/trends` | `trends.go` | Historical cost data points |
+| `GET /api/trends` | `trends.go` | Historical cardinality/size data points |
 | `GET /api/dashboards/unused` | `dashboards.go` | Unused Grafana dashboards |
 | `GET /health` | `health.go` | Service health check |
 
 **Query parameters to support:**
-- `/api/metrics`: `?sort=cost|cardinality|name`, `?limit=20`, `?team=backend-core`, `?search=http_`
+- `/api/metrics`: `?sort=size|cardinality|name`, `?limit=20`, `?team=backend-core`, `?search=http_`
 - `/api/recommendations`: `?priority=high|medium|low`
 - `/api/trends`: `?period=7d|30d|90d`
 
@@ -337,7 +338,7 @@ const (
 **Report command flags:**
 - `--format=table|json`
 - `--top=20`
-- `--sort=cost|cardinality`
+- `--sort=size|cardinality`
 
 **Deliverable:** Full CLI functionality
 
@@ -444,9 +445,9 @@ web/
 **File:** `web/src/pages/Dashboard.tsx`
 
 **Components to build:**
-- [ ] `MetricCard` - Hero stat cards (total metrics, cardinality, cost, trend)
-- [ ] `CostTrendChart` - Line chart showing 30-day cost trend (Recharts)
-- [ ] `TopMetricsTable` - Table of top 10 expensive metrics
+- [ ] `MetricCard` - Hero stat cards (total metrics, total cardinality, total size, trend %)
+- [ ] `SizeTrendChart` - Line chart showing 30-day cardinality/size trend (Recharts)
+- [ ] `TopMetricsTable` - Table of top 10 largest metrics (by cardinality or size)
 - [ ] `QuickWinsList` - Top 5 recommendations list
 
 **Layout:** Match wireframe from concept.md
@@ -462,10 +463,10 @@ web/
 **Features to implement:**
 - [ ] Searchable data table with columns:
   - Metric Name
-  - Cardinality
-  - Cost/month ($)
+  - Cardinality (time series count)
+  - Estimated Size (MB/GB)
   - Team
-  - Trend (%)
+  - Trend (% change)
 - [ ] Team filter dropdown
 - [ ] Column sorting (click header)
 - [ ] Pagination (20 items per page)
@@ -484,8 +485,8 @@ web/
 - [ ] Recommendation cards showing:
   - Metric name (linked)
   - Type badge (high-cardinality, unused, etc.)
-  - Current monthly cost
-  - Potential savings (highlighted in green)
+  - Current cardinality / size
+  - Potential size reduction (highlighted)
   - Description text
   - Suggested action (code block if applicable)
 - [ ] Empty state when no recommendations
@@ -564,7 +565,7 @@ func ServeStatic(r chi.Router) {
 ### 9.1 Unit Tests
 
 **Priority tests:**
-- [ ] `internal/analyzer/cost_calculator_test.go` - Cost formula accuracy
+- [ ] `internal/analyzer/size_calculator_test.go` - Size formula accuracy
 - [ ] `internal/analyzer/team_matcher_test.go` - Regex matching
 - [ ] `internal/analyzer/recommendations_test.go` - Priority scoring
 - [ ] `internal/config/config_test.go` - Config parsing and defaults
@@ -629,7 +630,7 @@ Week 1-2: Phase 1-2
 └── 2.3 Team attribution
 
 Week 3-4: Phase 3-5
-├── 3.1 Cost calculator
+├── 3.1 Size calculator
 ├── 3.2 Recommendations engine
 ├── 3.3 Trends calculator
 ├── 4.1 API server setup
