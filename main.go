@@ -7,14 +7,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/illenko/metriccost/internal/analyzer"
-	"github.com/illenko/metriccost/internal/api"
-	"github.com/illenko/metriccost/internal/collector"
-	"github.com/illenko/metriccost/internal/config"
-	"github.com/illenko/metriccost/internal/grafana"
-	"github.com/illenko/metriccost/internal/prometheus"
-	"github.com/illenko/metriccost/internal/scheduler"
-	"github.com/illenko/metriccost/internal/storage"
+	"github.com/illenko/metriccost/analyzer"
+	"github.com/illenko/metriccost/api"
+	"github.com/illenko/metriccost/collector"
+	"github.com/illenko/metriccost/config"
+	"github.com/illenko/metriccost/grafana"
+	"github.com/illenko/metriccost/prometheus"
+	"github.com/illenko/metriccost/scheduler"
+	"github.com/illenko/metriccost/storage"
 )
 
 func main() {

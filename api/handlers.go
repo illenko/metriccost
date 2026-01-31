@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/illenko/metriccost/internal/analyzer"
-	"github.com/illenko/metriccost/internal/scheduler"
-	"github.com/illenko/metriccost/internal/storage"
-	"github.com/illenko/metriccost/pkg/models"
+	"github.com/illenko/metriccost/analyzer"
+	"github.com/illenko/metriccost/models"
+	"github.com/illenko/metriccost/scheduler"
+	"github.com/illenko/metriccost/storage"
 )
 
 type Handlers struct {

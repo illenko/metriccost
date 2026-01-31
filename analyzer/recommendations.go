@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/illenko/metriccost/internal/storage"
-	"github.com/illenko/metriccost/pkg/models"
+	"github.com/illenko/metriccost/models"
+	"github.com/illenko/metriccost/storage"
 )
 
 type RecommendationsEngine struct {

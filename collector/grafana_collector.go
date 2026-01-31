@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/illenko/metriccost/internal/grafana"
-	"github.com/illenko/metriccost/internal/storage"
-	"github.com/illenko/metriccost/pkg/models"
+	"github.com/illenko/metriccost/grafana"
+	"github.com/illenko/metriccost/models"
+	"github.com/illenko/metriccost/storage"
 )
 
 type GrafanaCollector struct {

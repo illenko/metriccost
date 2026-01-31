@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/illenko/metriccost/pkg/models"
+	"github.com/illenko/metriccost/models"
 )
 
 type RecommendationsRepository struct {

@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/illenko/metriccost/internal/analyzer"
-	"github.com/illenko/metriccost/internal/prometheus"
-	"github.com/illenko/metriccost/internal/storage"
-	"github.com/illenko/metriccost/pkg/models"
+	"github.com/illenko/metriccost/analyzer"
+	"github.com/illenko/metriccost/models"
+	"github.com/illenko/metriccost/prometheus"
+	"github.com/illenko/metriccost/storage"
 )
 
 type PrometheusCollector struct {

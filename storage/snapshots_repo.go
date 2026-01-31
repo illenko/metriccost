@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/illenko/metriccost/pkg/models"
+	"github.com/illenko/metriccost/models"
 )
 
 type SnapshotsRepository struct {
