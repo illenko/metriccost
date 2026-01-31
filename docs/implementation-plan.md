@@ -721,12 +721,11 @@ A task is complete when:
 - ✅ Phase 3: Analysis Engine
 - ✅ Phase 4: REST API (using Go 1.22+ stdlib, no chi)
 - ✅ Phase 8: Background Scheduler (with scan trigger API)
-- ✅ Phase 5.1: CLI Framework (partial - init, version commands)
+- ⏭️ Phase 5: CLI Commands (skipped - service runs as HTTP server for K8s)
 
 ### Next Steps
 1. **Phase 7: React Frontend** - Web UI for visualization
 2. Phase 10: Docker/Kubernetes deployment
-3. Phase 5.2: CLI Commands (optional - lower priority for K8s deployment)
 
 ### Working Commands
 - `metriccost init` - creates config.yaml
