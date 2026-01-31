@@ -25,7 +25,7 @@ type PrometheusCollector struct {
 }
 
 type CollectorConfig struct {
-	BatchSize           int
+	BatchSize           int // save to DB every N metrics to reduce memory usage
 	Concurrency         int
 	LabelFetchThreshold int // skip fetching labels for metrics with cardinality above this (expensive query)
 }
@@ -39,7 +39,7 @@ func NewPrometheusCollector(
 	cfg CollectorConfig,
 ) *PrometheusCollector {
 	if cfg.BatchSize == 0 {
-		cfg.BatchSize = 50
+		cfg.BatchSize = 100
 	}
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 5
@@ -86,11 +86,22 @@ func (c *PrometheusCollector) Collect(ctx context.Context) (*CollectResult, erro
 		TeamBreakdown: make(map[string]models.TeamMetrics),
 	}
 
-	metrics := make([]*models.MetricSnapshot, 0, len(names))
+	var batch []*models.MetricSnapshot
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
 	sem := make(chan struct{}, c.concurrency)
+
+	saveBatch := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		if err := c.metricsRepo.SaveBatch(ctx, batch); err != nil {
+			return err
+		}
+		batch = batch[:0]
+		return nil
+	}
 
 	for i, name := range names {
 		if ctx.Err() != nil {
@@ -118,7 +129,7 @@ func (c *PrometheusCollector) Collect(ctx context.Context) (*CollectResult, erro
 			}
 
 			mu.Lock()
-			metrics = append(metrics, m)
+			batch = append(batch, m)
 			result.TotalMetrics++
 			result.TotalCardinality += int64(m.Cardinality)
 			result.TotalSizeBytes += m.EstimatedSizeBytes
@@ -132,16 +143,20 @@ func (c *PrometheusCollector) Collect(ctx context.Context) (*CollectResult, erro
 			tm.SizeBytes += m.EstimatedSizeBytes
 			tm.MetricCount++
 			result.TeamBreakdown[team] = tm
+
+			if len(batch) >= c.batchSize {
+				if err := saveBatch(); err != nil {
+					slog.Error("failed to save batch", "error", err)
+				}
+			}
 			mu.Unlock()
 		}(name)
 	}
 
 	wg.Wait()
 
-	if len(metrics) > 0 {
-		if err := c.metricsRepo.SaveBatch(ctx, metrics); err != nil {
-			return nil, err
-		}
+	if err := saveBatch(); err != nil {
+		return nil, err
 	}
 
 	snapshot := &models.Snapshot{

@@ -261,41 +261,41 @@ const (
 
 ---
 
-## Phase 4: REST API
+## Phase 4: REST API ✅
 
-### 4.1 API Server Setup
+### 4.1 API Server Setup ✅
 
 **File:** `internal/api/server.go`
 
 **Tasks:**
-- [ ] Set up Chi router with middleware:
+- [x] Set up Go 1.22+ stdlib ServeMux with middleware (no external router needed):
   - Request logging
   - Recovery (panic handler)
   - CORS (for development)
-  - Request timeout
-- [ ] Implement graceful shutdown
-- [ ] Add structured JSON responses
+- [x] Implement graceful shutdown
+- [x] Add structured JSON responses
 
 **Deliverable:** HTTP server foundation
 
 ---
 
-### 4.2 API Endpoints
+### 4.2 API Endpoints ✅
 
-**Files:** `internal/api/handlers/*.go`
+**Files:** `internal/api/handlers.go`
 
-**Implement all endpoints from concept.md:**
+**Implemented all endpoints:**
 
-| Endpoint | Handler | Description |
-|----------|---------|-------------|
-| `GET /api/overview` | `overview.go` | Total metrics, cardinality, size, team breakdown |
-| `GET /api/metrics` | `metrics.go` | List metrics with filtering/sorting |
-| `GET /api/recommendations` | `recommendations.go` | List recommendations by priority |
-| `GET /api/trends` | `trends.go` | Historical cardinality/size data points |
-| `GET /api/dashboards/unused` | `dashboards.go` | Unused Grafana dashboards |
-| `GET /health` | `health.go` | Service health check |
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/overview` | Total metrics, cardinality, size, team breakdown |
+| `GET /api/metrics` | List metrics with filtering/sorting |
+| `GET /api/metrics/{name}` | Get specific metric details |
+| `GET /api/recommendations` | List recommendations by priority |
+| `GET /api/trends` | Historical cardinality/size data points |
+| `GET /api/dashboards/unused` | Unused Grafana dashboards |
+| `GET /health` | Service health check |
 
-**Query parameters to support:**
+**Query parameters supported:**
 - `/api/metrics`: `?sort=size|cardinality|name`, `?limit=20`, `?team=backend-core`, `?search=http_`
 - `/api/recommendations`: `?priority=high|medium|low`
 - `/api/trends`: `?period=7d|30d|90d`
@@ -718,12 +718,13 @@ A task is complete when:
 - ✅ Phase 2: Prometheus Integration
 - ✅ Phase 6: Grafana Integration
 - ✅ Phase 3: Analysis Engine
+- ✅ Phase 4: REST API (using Go 1.22+ stdlib, no chi)
 - ✅ Phase 5.1: CLI Framework (partial - init, version commands)
 
 ### Next Steps
-1. **Phase 4: REST API** - Endpoints for frontend
-2. Phase 5.2: CLI Commands - scan, report, serve, export
-3. Phase 7: React Frontend
+1. **Phase 5.2: CLI Commands** - scan, report, serve, export
+2. Phase 7: React Frontend
+3. Phase 8: Background Scheduler
 
 ### Working Commands
 - `metriccost init` - creates config.yaml

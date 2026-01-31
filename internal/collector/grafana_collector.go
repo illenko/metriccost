@@ -168,6 +168,32 @@ func (c *GrafanaCollector) countQueries(detail *grafana.DashboardDetail) int {
 
 var metricNameRegex = regexp.MustCompile(`([a-zA-Z_:][a-zA-Z0-9_:]*)\s*(\{|$|\()`)
 
+var promqlFuncs = map[string]struct{}{
+	"sum": {}, "avg": {}, "min": {}, "max": {}, "count": {},
+	"rate": {}, "irate": {}, "increase": {}, "delta": {},
+	"histogram_quantile": {}, "label_replace": {}, "label_join": {},
+	"abs": {}, "absent": {}, "ceil": {}, "floor": {}, "round": {},
+	"clamp": {}, "clamp_max": {}, "clamp_min": {},
+	"day_of_month": {}, "day_of_week": {}, "days_in_month": {},
+	"hour": {}, "minute": {}, "month": {}, "year": {},
+	"deriv": {}, "predict_linear": {}, "holt_winters": {},
+	"exp": {}, "ln": {}, "log2": {}, "log10": {}, "sqrt": {},
+	"sort": {}, "sort_desc": {}, "time": {}, "timestamp": {},
+	"vector": {}, "scalar": {}, "sgn": {}, "deg": {}, "rad": {},
+	"acos": {}, "acosh": {}, "asin": {}, "asinh": {}, "atan": {}, "atanh": {},
+	"cos": {}, "cosh": {}, "sin": {}, "sinh": {}, "tan": {}, "tanh": {},
+	"topk": {}, "bottomk": {}, "quantile": {},
+	"stddev": {}, "stdvar": {},
+	"count_values": {}, "group": {},
+	"changes": {}, "resets": {},
+	"avg_over_time": {}, "min_over_time": {}, "max_over_time": {},
+	"sum_over_time": {}, "count_over_time": {}, "quantile_over_time": {},
+	"stddev_over_time": {}, "stdvar_over_time": {},
+	"last_over_time": {}, "present_over_time": {},
+	"by": {}, "without": {}, "on": {}, "ignoring": {}, "group_left": {}, "group_right": {},
+	"bool": {}, "offset": {},
+}
+
 func extractMetricNames(expr string) []string {
 	expr = removePromQLStrings(expr)
 
@@ -175,32 +201,6 @@ func extractMetricNames(expr string) []string {
 
 	seen := make(map[string]struct{})
 	var result []string
-
-	promqlFuncs := map[string]struct{}{
-		"sum": {}, "avg": {}, "min": {}, "max": {}, "count": {},
-		"rate": {}, "irate": {}, "increase": {}, "delta": {},
-		"histogram_quantile": {}, "label_replace": {}, "label_join": {},
-		"abs": {}, "absent": {}, "ceil": {}, "floor": {}, "round": {},
-		"clamp": {}, "clamp_max": {}, "clamp_min": {},
-		"day_of_month": {}, "day_of_week": {}, "days_in_month": {},
-		"hour": {}, "minute": {}, "month": {}, "year": {},
-		"deriv": {}, "predict_linear": {}, "holt_winters": {},
-		"exp": {}, "ln": {}, "log2": {}, "log10": {}, "sqrt": {},
-		"sort": {}, "sort_desc": {}, "time": {}, "timestamp": {},
-		"vector": {}, "scalar": {}, "sgn": {}, "deg": {}, "rad": {},
-		"acos": {}, "acosh": {}, "asin": {}, "asinh": {}, "atan": {}, "atanh": {},
-		"cos": {}, "cosh": {}, "sin": {}, "sinh": {}, "tan": {}, "tanh": {},
-		"topk": {}, "bottomk": {}, "quantile": {},
-		"stddev": {}, "stdvar": {},
-		"count_values": {}, "group": {},
-		"changes": {}, "resets": {},
-		"avg_over_time": {}, "min_over_time": {}, "max_over_time": {},
-		"sum_over_time": {}, "count_over_time": {}, "quantile_over_time": {},
-		"stddev_over_time": {}, "stdvar_over_time": {},
-		"last_over_time": {}, "present_over_time": {},
-		"by": {}, "without": {}, "on": {}, "ignoring": {}, "group_left": {}, "group_right": {},
-		"bool": {}, "offset": {},
-	}
 
 	for _, match := range matches {
 		if len(match) < 2 {
