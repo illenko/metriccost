@@ -723,9 +723,11 @@ A task is complete when:
 - ✅ Phase 8: Background Scheduler (with scan trigger API)
 - ⏭️ Phase 5: CLI Commands (skipped - service runs as HTTP server for K8s)
 
+### Completed
+- ✅ Phase 7: React Frontend (minimalistic, embedded in binary)
+
 ### Next Steps
-1. **Phase 7: React Frontend** - Web UI for visualization
-2. Phase 10: Docker/Kubernetes deployment
+1. Phase 10: Docker/Kubernetes deployment
 
 ### Working Commands
 - `metriccost init` - creates config.yaml

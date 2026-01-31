@@ -54,6 +54,9 @@ func NewServer(handlers *Handlers, cfg ServerConfig) *Server {
 	mux.HandleFunc("POST /api/scan", handlers.TriggerScan)
 	mux.HandleFunc("GET /api/scan/status", handlers.GetScanStatus)
 
+	// Static files (frontend)
+	mux.Handle("/", staticHandler())
+
 	handler := withMiddleware(mux)
 
 	return &Server{

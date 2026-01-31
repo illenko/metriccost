@@ -36,7 +36,7 @@ func (r *MetricsRepository) Save(ctx context.Context, m *models.MetricSnapshot) 
 	`
 
 	_, err = r.db.conn.ExecContext(ctx, query,
-		m.CollectedAt, m.MetricName, m.Cardinality, m.EstimatedSizeBytes,
+		m.CollectedAt.Format(time.RFC3339), m.MetricName, m.Cardinality, m.EstimatedSizeBytes,
 		m.SampleCount, m.Team, string(labelsJSON),
 	)
 	return err
@@ -67,7 +67,7 @@ func (r *MetricsRepository) SaveBatch(ctx context.Context, metrics []*models.Met
 	for _, m := range metrics {
 		labelsJSON, _ := json.Marshal(m.Labels)
 		_, err = stmt.ExecContext(ctx,
-			m.CollectedAt, m.MetricName, m.Cardinality, m.EstimatedSizeBytes,
+			m.CollectedAt.Format(time.RFC3339), m.MetricName, m.Cardinality, m.EstimatedSizeBytes,
 			m.SampleCount, m.Team, string(labelsJSON),
 		)
 		if err != nil {
@@ -132,17 +132,17 @@ func (r *MetricsRepository) List(ctx context.Context, collectedAt time.Time, opt
 }
 
 func (r *MetricsRepository) GetLatestCollectionTime(ctx context.Context) (time.Time, error) {
-	var t sql.NullTime
+	var s sql.NullString
 	err := r.db.conn.QueryRowContext(ctx,
 		"SELECT MAX(collected_at) FROM metric_snapshots",
-	).Scan(&t)
+	).Scan(&s)
 	if err != nil {
 		return time.Time{}, err
 	}
-	if !t.Valid {
+	if !s.Valid || s.String == "" {
 		return time.Time{}, nil
 	}
-	return t.Time, nil
+	return time.Parse(time.RFC3339, s.String)
 }
 
 func (r *MetricsRepository) GetByName(ctx context.Context, name string) (*models.MetricSnapshot, error) {
@@ -201,18 +201,20 @@ func (r *MetricsRepository) scanMetrics(rows *sql.Rows) ([]*models.MetricSnapsho
 
 func (r *MetricsRepository) scanMetricFromRows(rows *sql.Rows) (*models.MetricSnapshot, error) {
 	var m models.MetricSnapshot
+	var collectedAt string
 	var labelsJSON sql.NullString
 	var team sql.NullString
 	var sampleCount sql.NullInt64
 
 	err := rows.Scan(
-		&m.ID, &m.CollectedAt, &m.MetricName, &m.Cardinality,
+		&m.ID, &collectedAt, &m.MetricName, &m.Cardinality,
 		&m.EstimatedSizeBytes, &sampleCount, &team, &labelsJSON,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	m.CollectedAt, _ = time.Parse(time.RFC3339, collectedAt)
 	if team.Valid {
 		m.Team = team.String
 	}
@@ -230,18 +232,20 @@ func (r *MetricsRepository) scanMetricFromRows(rows *sql.Rows) (*models.MetricSn
 
 func (r *MetricsRepository) scanMetric(row *sql.Row) (*models.MetricSnapshot, error) {
 	var m models.MetricSnapshot
+	var collectedAt string
 	var labelsJSON sql.NullString
 	var team sql.NullString
 	var sampleCount sql.NullInt64
 
 	err := row.Scan(
-		&m.ID, &m.CollectedAt, &m.MetricName, &m.Cardinality,
+		&m.ID, &collectedAt, &m.MetricName, &m.Cardinality,
 		&m.EstimatedSizeBytes, &sampleCount, &team, &labelsJSON,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	m.CollectedAt, _ = time.Parse(time.RFC3339, collectedAt)
 	if team.Valid {
 		m.Team = team.String
 	}

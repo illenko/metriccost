@@ -35,9 +35,14 @@ func (r *DashboardsRepository) Save(ctx context.Context, d *models.DashboardStat
 			metrics_used = excluded.metrics_used
 	`
 
+	var lastViewed *string
+	if !d.LastViewedAt.IsZero() {
+		s := d.LastViewedAt.Format(time.RFC3339)
+		lastViewed = &s
+	}
 	_, err = r.db.conn.ExecContext(ctx, query,
-		d.CollectedAt, d.DashboardUID, d.DashboardName, d.FolderName,
-		d.LastViewedAt, d.QueryCount, string(metricsJSON),
+		d.CollectedAt.Format(time.RFC3339), d.DashboardUID, d.DashboardName, d.FolderName,
+		lastViewed, d.QueryCount, string(metricsJSON),
 	)
 	return err
 }
@@ -66,9 +71,14 @@ func (r *DashboardsRepository) SaveBatch(ctx context.Context, dashboards []*mode
 
 	for _, d := range dashboards {
 		metricsJSON, _ := json.Marshal(d.MetricsUsed)
+		var lastViewed *string
+		if !d.LastViewedAt.IsZero() {
+			s := d.LastViewedAt.Format(time.RFC3339)
+			lastViewed = &s
+		}
 		_, err = stmt.ExecContext(ctx,
-			d.CollectedAt, d.DashboardUID, d.DashboardName, d.FolderName,
-			d.LastViewedAt, d.QueryCount, string(metricsJSON),
+			d.CollectedAt.Format(time.RFC3339), d.DashboardUID, d.DashboardName, d.FolderName,
+			lastViewed, d.QueryCount, string(metricsJSON),
 		)
 		if err != nil {
 			return err
@@ -79,17 +89,17 @@ func (r *DashboardsRepository) SaveBatch(ctx context.Context, dashboards []*mode
 }
 
 func (r *DashboardsRepository) GetLatestCollectionTime(ctx context.Context) (time.Time, error) {
-	var t sql.NullTime
+	var s sql.NullString
 	err := r.db.conn.QueryRowContext(ctx,
 		"SELECT MAX(collected_at) FROM dashboard_stats",
-	).Scan(&t)
+	).Scan(&s)
 	if err != nil {
 		return time.Time{}, err
 	}
-	if !t.Valid {
+	if !s.Valid || s.String == "" {
 		return time.Time{}, nil
 	}
-	return t.Time, nil
+	return time.Parse(time.RFC3339, s.String)
 }
 
 func (r *DashboardsRepository) GetAllMetricsUsed(ctx context.Context) (map[string]struct{}, error) {
@@ -159,7 +169,7 @@ func (r *DashboardsRepository) GetUnusedDashboards(ctx context.Context, daysSinc
 
 	for rows.Next() {
 		var d models.UnusedDashboard
-		var lastViewed sql.NullTime
+		var lastViewed sql.NullString
 		var queryCount int
 		var metricsJSON sql.NullString
 
@@ -168,8 +178,8 @@ func (r *DashboardsRepository) GetUnusedDashboards(ctx context.Context, daysSinc
 			return nil, err
 		}
 
-		if lastViewed.Valid {
-			d.LastViewed = lastViewed.Time
+		if lastViewed.Valid && lastViewed.String != "" {
+			d.LastViewed, _ = time.Parse(time.RFC3339, lastViewed.String)
 			d.DaysSinceView = int(now.Sub(d.LastViewed).Hours() / 24)
 		} else {
 			d.DaysSinceView = 9999
@@ -213,20 +223,22 @@ func (r *DashboardsRepository) List(ctx context.Context) ([]*models.DashboardSta
 	var dashboards []*models.DashboardStats
 	for rows.Next() {
 		var d models.DashboardStats
-		var lastViewed sql.NullTime
+		var collectedAt string
+		var lastViewed sql.NullString
 		var metricsJSON sql.NullString
 		var folderName sql.NullString
 
-		err := rows.Scan(&d.ID, &d.CollectedAt, &d.DashboardUID, &d.DashboardName, &folderName, &lastViewed, &d.QueryCount, &metricsJSON)
+		err := rows.Scan(&d.ID, &collectedAt, &d.DashboardUID, &d.DashboardName, &folderName, &lastViewed, &d.QueryCount, &metricsJSON)
 		if err != nil {
 			return nil, err
 		}
 
+		d.CollectedAt, _ = time.Parse(time.RFC3339, collectedAt)
 		if folderName.Valid {
 			d.FolderName = folderName.String
 		}
-		if lastViewed.Valid {
-			d.LastViewedAt = lastViewed.Time
+		if lastViewed.Valid && lastViewed.String != "" {
+			d.LastViewedAt, _ = time.Parse(time.RFC3339, lastViewed.String)
 		}
 		if metricsJSON.Valid && metricsJSON.String != "" {
 			json.Unmarshal([]byte(metricsJSON.String), &d.MetricsUsed)

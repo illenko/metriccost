@@ -26,7 +26,7 @@ func (r *RecommendationsRepository) Save(ctx context.Context, rec *models.Recomm
 	`
 
 	result, err := r.db.conn.ExecContext(ctx, query,
-		rec.CreatedAt, rec.MetricName, rec.Type, rec.Priority,
+		rec.CreatedAt.Format(time.RFC3339), rec.MetricName, rec.Type, rec.Priority,
 		rec.CurrentCardinality, rec.CurrentSizeBytes, rec.PotentialReductionBytes,
 		rec.Description, rec.SuggestedAction,
 	)
@@ -63,7 +63,7 @@ func (r *RecommendationsRepository) SaveBatch(ctx context.Context, recs []*model
 
 	for _, rec := range recs {
 		_, err = stmt.ExecContext(ctx,
-			rec.CreatedAt, rec.MetricName, rec.Type, rec.Priority,
+			rec.CreatedAt.Format(time.RFC3339), rec.MetricName, rec.Type, rec.Priority,
 			rec.CurrentCardinality, rec.CurrentSizeBytes, rec.PotentialReductionBytes,
 			rec.Description, rec.SuggestedAction,
 		)
@@ -165,11 +165,12 @@ func (r *RecommendationsRepository) scanRecommendations(rows *sql.Rows) ([]*mode
 	var recs []*models.Recommendation
 	for rows.Next() {
 		var rec models.Recommendation
+		var createdAt string
 		var currentCard, currentSize, potentialReduction sql.NullInt64
 		var description, suggestedAction sql.NullString
 
 		err := rows.Scan(
-			&rec.ID, &rec.CreatedAt, &rec.MetricName, &rec.Type, &rec.Priority,
+			&rec.ID, &createdAt, &rec.MetricName, &rec.Type, &rec.Priority,
 			&currentCard, &currentSize, &potentialReduction,
 			&description, &suggestedAction,
 		)
@@ -177,6 +178,7 @@ func (r *RecommendationsRepository) scanRecommendations(rows *sql.Rows) ([]*mode
 			return nil, err
 		}
 
+		rec.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
 		if currentCard.Valid {
 			rec.CurrentCardinality = int(currentCard.Int64)
 		}

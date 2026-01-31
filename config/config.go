@@ -32,8 +32,8 @@ type GrafanaConfig struct {
 }
 
 type CollectionConfig struct {
-	Interval  time.Duration `mapstructure:"interval"`
-	Retention time.Duration `mapstructure:"retention"`
+	Interval      time.Duration `mapstructure:"interval"`
+	RetentionDays int           `mapstructure:"retention_days"`
 }
 
 type SizeModelConfig struct {
@@ -95,7 +95,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("prometheus.url", "http://localhost:9090")
 	v.SetDefault("grafana.url", "http://localhost:3000")
 	v.SetDefault("collection.interval", "24h")
-	v.SetDefault("collection.retention", "90d")
+	v.SetDefault("collection.retention_days", 90)
 	v.SetDefault("size_model.bytes_per_sample", 2)
 	v.SetDefault("size_model.default_retention_days", 30)
 	v.SetDefault("size_model.scrape_interval", "15s")
@@ -115,8 +115,8 @@ func defaultConfig() *Config {
 			URL: "http://localhost:3000",
 		},
 		Collection: CollectionConfig{
-			Interval:  24 * time.Hour,
-			Retention: 90 * 24 * time.Hour,
+			Interval:      24 * time.Hour,
+			RetentionDays: 90,
 		},
 		SizeModel: SizeModelConfig{
 			BytesPerSample:       2,
@@ -157,6 +157,10 @@ func (c *Config) SamplesPerDay() int {
 		return 5760 // 15s interval = 5760 samples/day
 	}
 	return int(24 * time.Hour / c.SizeModel.ScrapeInterval)
+}
+
+func (c *Config) RetentionDuration() time.Duration {
+	return time.Duration(c.Collection.RetentionDays) * 24 * time.Hour
 }
 
 func ConfigFileExists(path string) bool {
