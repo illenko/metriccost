@@ -113,7 +113,7 @@ func (r *DashboardsRepository) GetAllMetricsUsed(ctx context.Context) (map[strin
 
 	rows, err := r.db.conn.QueryContext(ctx,
 		"SELECT metrics_used FROM dashboard_stats WHERE collected_at = ?",
-		latestTime,
+		latestTime.Format(time.RFC3339),
 	)
 	if err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func (r *DashboardsRepository) GetUnusedDashboards(ctx context.Context, daysSinc
 		ORDER BY last_viewed_at ASC
 	`
 
-	rows, err := r.db.conn.QueryContext(ctx, query, latestTime, cutoff)
+	rows, err := r.db.conn.QueryContext(ctx, query, latestTime.Format(time.RFC3339), cutoff.Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func (r *DashboardsRepository) List(ctx context.Context) ([]*models.DashboardSta
 		ORDER BY dashboard_name
 	`
 
-	rows, err := r.db.conn.QueryContext(ctx, query, latestTime)
+	rows, err := r.db.conn.QueryContext(ctx, query, latestTime.Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}

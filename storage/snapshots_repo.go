@@ -80,7 +80,7 @@ func (r *SnapshotsRepository) GetTrends(ctx context.Context, since time.Time) ([
 		ORDER BY collected_at ASC
 	`
 
-	rows, err := r.db.conn.QueryContext(ctx, query, since)
+	rows, err := r.db.conn.QueryContext(ctx, query, since.Format(time.RFC3339))
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (r *SnapshotsRepository) GetPrevious(ctx context.Context, before time.Time)
 	var collectedAt string
 	var teamJSON sql.NullString
 
-	err := r.db.conn.QueryRowContext(ctx, query, before).Scan(
+	err := r.db.conn.QueryRowContext(ctx, query, before.Format(time.RFC3339)).Scan(
 		&s.ID, &collectedAt, &s.TotalMetrics, &s.TotalCardinality, &s.TotalSizeBytes, &teamJSON,
 	)
 	if err == sql.ErrNoRows {

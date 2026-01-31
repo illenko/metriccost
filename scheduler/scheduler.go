@@ -89,7 +89,7 @@ func (s *Scheduler) Stop() {
 	close(s.stopCh)
 }
 
-func (s *Scheduler) TriggerScan(ctx context.Context) error {
+func (s *Scheduler) TriggerScan(_ context.Context) error {
 	s.mu.RLock()
 	if s.status.Running {
 		s.mu.RUnlock()
@@ -97,7 +97,7 @@ func (s *Scheduler) TriggerScan(ctx context.Context) error {
 	}
 	s.mu.RUnlock()
 
-	go s.runScan(ctx)
+	go s.runScan(context.Background())
 	return nil
 }
 

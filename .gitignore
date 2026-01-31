@@ -40,3 +40,6 @@ tmp/
 # Node modules (for frontend)
 node_modules/
 web/dist/
+/api/dist/
+/metriccost.db-shm
+/metriccost.db-wal

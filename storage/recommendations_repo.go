@@ -122,7 +122,7 @@ func (r *RecommendationsRepository) GetByMetricName(ctx context.Context, metricN
 func (r *RecommendationsRepository) DeleteOlderThan(ctx context.Context, before time.Time) (int64, error) {
 	result, err := r.db.conn.ExecContext(ctx,
 		"DELETE FROM recommendations WHERE created_at < ?",
-		before,
+		before.Format(time.RFC3339),
 	)
 	if err != nil {
 		return 0, err

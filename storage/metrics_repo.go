@@ -92,7 +92,7 @@ func (r *MetricsRepository) List(ctx context.Context, collectedAt time.Time, opt
 		FROM metric_snapshots
 		WHERE collected_at = ?
 	`
-	args := []interface{}{collectedAt}
+	args := []interface{}{collectedAt.Format(time.RFC3339)}
 
 	if opts.Team != "" {
 		query += " AND team = ?"
@@ -163,7 +163,7 @@ func (r *MetricsRepository) GetTrend(ctx context.Context, name string, current, 
 
 	err := r.db.conn.QueryRowContext(ctx,
 		"SELECT cardinality FROM metric_snapshots WHERE metric_name = ? AND collected_at = ?",
-		name, current,
+		name, current.Format(time.RFC3339),
 	).Scan(&currentCard)
 	if err != nil {
 		return 0, err
@@ -171,7 +171,7 @@ func (r *MetricsRepository) GetTrend(ctx context.Context, name string, current, 
 
 	err = r.db.conn.QueryRowContext(ctx,
 		"SELECT cardinality FROM metric_snapshots WHERE metric_name = ? AND collected_at = ?",
-		name, previous,
+		name, previous.Format(time.RFC3339),
 	).Scan(&previousCard)
 	if err == sql.ErrNoRows {
 		return 0, nil

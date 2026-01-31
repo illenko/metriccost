@@ -116,7 +116,7 @@ type DBStats struct {
 }
 
 func (db *DB) Cleanup(ctx context.Context, retention time.Duration) (int64, error) {
-	cutoff := time.Now().Add(-retention)
+	cutoff := time.Now().Add(-retention).Format(time.RFC3339)
 	var totalDeleted int64
 
 	tables := []string{"metric_snapshots", "dashboard_stats", "snapshots"}
