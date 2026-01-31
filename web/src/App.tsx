@@ -13,8 +13,16 @@ function formatNumber(n: number): string {
   return n.toLocaleString()
 }
 
+type Tab = 'overview' | 'metrics' | 'recommendations'
+
+function getTabFromHash(): Tab {
+  const hash = window.location.hash.slice(1)
+  if (hash === 'metrics' || hash === 'recommendations') return hash
+  return 'overview'
+}
+
 function App() {
-  const [tab, setTab] = useState<'overview' | 'metrics' | 'recommendations'>('overview')
+  const [tab, setTab] = useState<Tab>(getTabFromHash)
   const [overview, setOverview] = useState<Overview | null>(null)
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
@@ -26,6 +34,16 @@ function App() {
     loadData()
     const interval = setInterval(loadScanStatus, 5000)
     return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    window.location.hash = tab
+  }, [tab])
+
+  useEffect(() => {
+    const onHashChange = () => setTab(getTabFromHash())
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
   useEffect(() => {
