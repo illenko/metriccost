@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -23,7 +24,7 @@ type PrometheusConfig struct {
 }
 
 type DiscoveryConfig struct {
-	ServiceLabel string `mapstructure:"service_label"` // e.g., "app", "service", "job"
+	ServiceLabel string `mapstructure:"service_label"`
 }
 
 type ScanConfig struct {
@@ -57,7 +58,8 @@ func Load(path string) (*Config, error) {
 	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
 			return defaultConfig(), nil
 		}
 		return nil, fmt.Errorf("failed to read config: %w", err)

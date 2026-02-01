@@ -38,7 +38,6 @@ func NewHandlers(cfg HandlersConfig) *Handlers {
 	}
 }
 
-// Health check
 func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -60,7 +59,6 @@ func (h *Handlers) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, status)
 }
 
-// GET /api/scans - list all snapshots
 func (h *Handlers) ListScans(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -79,7 +77,6 @@ func (h *Handlers) ListScans(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, scans)
 }
 
-// GET /api/scans/latest - get latest snapshot
 func (h *Handlers) GetLatestScan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -97,7 +94,6 @@ func (h *Handlers) GetLatestScan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, scan)
 }
 
-// GET /api/scans/{id} - get snapshot details
 func (h *Handlers) GetScan(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -121,7 +117,6 @@ func (h *Handlers) GetScan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, scan)
 }
 
-// GET /api/scans/{id}/services - list services in snapshot
 func (h *Handlers) ListServices(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -150,7 +145,6 @@ func (h *Handlers) ListServices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, services)
 }
 
-// GET /api/scans/{id}/services/{service} - get service detail
 func (h *Handlers) GetService(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -176,7 +170,6 @@ func (h *Handlers) GetService(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, service)
 }
 
-// GET /api/scans/{id}/services/{service}/metrics - list metrics for service
 func (h *Handlers) ListMetrics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -188,7 +181,6 @@ func (h *Handlers) ListMetrics(w http.ResponseWriter, r *http.Request) {
 
 	serviceName := r.PathValue("service")
 
-	// Get service to find serviceSnapshotID
 	service, err := h.services.GetByName(ctx, scanID, serviceName)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -217,7 +209,6 @@ func (h *Handlers) ListMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, metrics)
 }
 
-// GET /api/scans/{id}/services/{service}/metrics/{metric} - get metric detail
 func (h *Handlers) GetMetric(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -230,7 +221,6 @@ func (h *Handlers) GetMetric(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.PathValue("service")
 	metricName := r.PathValue("metric")
 
-	// Get service to find serviceSnapshotID
 	service, err := h.services.GetByName(ctx, scanID, serviceName)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -254,7 +244,6 @@ func (h *Handlers) GetMetric(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, metric)
 }
 
-// GET /api/scans/{id}/services/{service}/metrics/{metric}/labels - list labels
 func (h *Handlers) ListLabels(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -267,7 +256,6 @@ func (h *Handlers) ListLabels(w http.ResponseWriter, r *http.Request) {
 	serviceName := r.PathValue("service")
 	metricName := r.PathValue("metric")
 
-	// Get service to find serviceSnapshotID
 	service, err := h.services.GetByName(ctx, scanID, serviceName)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -278,7 +266,6 @@ func (h *Handlers) ListLabels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get metric to find metricSnapshotID
 	metric, err := h.metrics.GetByName(ctx, service.ID, metricName)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -302,7 +289,6 @@ func (h *Handlers) ListLabels(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, labels)
 }
 
-// POST /api/scan - trigger scan
 func (h *Handlers) TriggerScan(w http.ResponseWriter, r *http.Request) {
 	if h.scheduler == nil {
 		writeError(w, http.StatusServiceUnavailable, "scheduler not configured")
@@ -322,7 +308,6 @@ func (h *Handlers) TriggerScan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "scan started"})
 }
 
-// GET /api/scan/status - get scan status
 func (h *Handlers) GetScanStatus(w http.ResponseWriter, r *http.Request) {
 	if h.scheduler == nil {
 		writeError(w, http.StatusServiceUnavailable, "scheduler not configured")

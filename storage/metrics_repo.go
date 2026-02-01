@@ -71,7 +71,6 @@ func (r *MetricsRepository) List(ctx context.Context, serviceSnapshotID int64, o
 		WHERE service_snapshot_id = ?
 	`
 
-	// Apply sorting
 	orderDir := "DESC"
 	if opts.Order == "asc" {
 		orderDir = "ASC"

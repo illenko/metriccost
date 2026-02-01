@@ -7,11 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/illenko/metriccost/analyzer"
 	"github.com/illenko/metriccost/api"
 	"github.com/illenko/metriccost/collector"
 	"github.com/illenko/metriccost/config"
-	"github.com/illenko/metriccost/grafana"
 	"github.com/illenko/metriccost/prometheus"
 	"github.com/illenko/metriccost/scheduler"
 	"github.com/illenko/metriccost/storage"
@@ -35,22 +33,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "metriccost.db"
-	}
-
-	db, err := storage.New(dbPath)
+	db, err := storage.New(cfg.Storage.Path)
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
 		os.Exit(1)
 	}
 	defer db.Close()
 
-	metricsRepo := storage.NewMetricsRepository(db)
 	snapshotsRepo := storage.NewSnapshotsRepository(db)
-	recsRepo := storage.NewRecommendationsRepository(db)
-	dashboardsRepo := storage.NewDashboardsRepository(db)
+	servicesRepo := storage.NewServicesRepository(db)
+	metricsRepo := storage.NewMetricsRepository(db)
+	labelsRepo := storage.NewLabelsRepository(db)
 
 	promClient, err := prometheus.NewClient(prometheus.Config{
 		URL:      cfg.Prometheus.URL,
@@ -62,56 +55,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	var grafanaClient *grafana.Client
-	if cfg.Grafana.URL != "" {
-		grafanaClient, err = grafana.NewClient(grafana.Config{
-			URL:      cfg.Grafana.URL,
-			APIToken: cfg.Grafana.APIToken,
-			Username: cfg.Grafana.Username,
-			Password: cfg.Grafana.Password,
-		})
-		if err != nil {
-			slog.Warn("failed to create grafana client", "error", err)
-		}
-	}
-
-	teamPatterns := make(map[string][]string)
-	for team, tc := range cfg.Teams {
-		teamPatterns[team] = tc.MetricsPatterns
-	}
-	teamMatcher, _ := analyzer.NewTeamMatcher(teamPatterns)
-
-	promCollector := collector.NewPrometheusCollector(
-		promClient, metricsRepo, snapshotsRepo, teamMatcher,
-		collector.CollectorConfig{},
+	coll := collector.NewCollector(
+		promClient,
+		snapshotsRepo,
+		servicesRepo,
+		metricsRepo,
+		labelsRepo,
+		cfg,
 	)
 
-	var grafanaCollector *collector.GrafanaCollector
-	if grafanaClient != nil {
-		grafanaCollector = collector.NewGrafanaCollector(grafanaClient, dashboardsRepo, cfg.Grafana.URL)
-	}
-
-	recsEngine := analyzer.NewRecommendationsEngine(
-		metricsRepo, dashboardsRepo, recsRepo,
-		analyzer.RecommendationsConfig{
-			HighCardinalityThreshold: cfg.Recommendations.HighCardinalityThreshold,
-		},
-	)
-
-	trends := analyzer.NewTrendsCalculator(snapshotsRepo, metricsRepo)
-
-	sched := scheduler.New(promCollector, grafanaCollector, recsEngine, scheduler.Config{
-		Interval: cfg.Collection.Interval,
+	sched := scheduler.New(coll, scheduler.Config{
+		Interval: cfg.Scan.Interval,
 	})
 
 	handlers := api.NewHandlers(api.HandlersConfig{
-		MetricsRepo:    metricsRepo,
-		RecsRepo:       recsRepo,
-		DashboardsRepo: dashboardsRepo,
-		SnapshotsRepo:  snapshotsRepo,
-		Trends:         trends,
-		Scheduler:      sched,
-		DB:             db,
+		Snapshots: snapshotsRepo,
+		Services:  servicesRepo,
+		Metrics:   metricsRepo,
+		Labels:    labelsRepo,
+		Scheduler: sched,
+		DB:        db,
 	})
 
 	server := api.NewServer(handlers, api.ServerConfig{

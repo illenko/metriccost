@@ -29,8 +29,9 @@ This plan implements the **pivot** from a metric-centric audit tool to a **servi
 | 4.1 | ✅ Done | Prometheus client |
 | 5.1 | ✅ Done | Collector rewrite |
 | 5.2 | ✅ Done | Remove unused code |
-| 6.1 | ⬜ Todo | API endpoints (snapshot-centric) |
-| 6.2 | ⬜ Todo | Update router |
+| 6.1 | ✅ Done | API endpoints (snapshot-centric) |
+| 6.2 | ✅ Done | Update router |
+| 6.3 | ✅ Done | Update main.go |
 | 7.1 | ⬜ Todo | Frontend types |
 | 7.2 | ⬜ Todo | Scans list page (home) |
 | 7.3 | ⬜ Todo | Services list page |
@@ -128,9 +129,9 @@ This plan implements the **pivot** from a metric-centric audit tool to a **servi
 
 ---
 
-## Phase 6: API
+## Phase 6: API ✅
 
-### 6.1 New Endpoints (Snapshot-Centric)
+### 6.1 New Endpoints (Snapshot-Centric) ✅
 
 **File:** `api/handlers.go`
 
@@ -175,12 +176,21 @@ Frontend can use this to auto-navigate to latest scan on load.
 
 **Use case:** After fixing high-cardinality issue, run new scan and compare with previous.
 
-### 6.2 Update Router
+### 6.2 Update Router ✅
 
 **File:** `api/server.go`
 
-- [ ] Register new hierarchical routes
-- [ ] Remove old endpoints
+- [x] Register new hierarchical routes
+- [x] Remove old endpoints
+
+### 6.3 Update Main ✅
+
+**File:** `main.go`
+
+- [x] Remove deleted package imports (analyzer, grafana)
+- [x] Use new config structure
+- [x] Wire up new repositories
+- [x] Update collector and scheduler initialization
 
 ---
 
@@ -300,9 +310,9 @@ User can go back to scans list to see history and compare.
 
 ### 8.1 Final Cleanup
 
-- [ ] Remove all unused files
-- [ ] Update `main.go`
-- [ ] Update `config.yaml`
+- [x] Remove all unused files
+- [x] Update `main.go`
+- [x] Update `config.yaml`
 - [ ] Test full flow
 
 ---
@@ -317,25 +327,24 @@ User can go back to scans list to see history and compare.
 - `storage/metrics_repo.go` - rewritten
 - `storage/labels_repo.go` - created
 - `models/models.go` - rewritten
+- `config/config.go` - simplified
+- `prometheus/client.go` - service discovery added
+- `collector/prometheus_collector.go` - rewritten
+- `scheduler/scheduler.go` - rewritten
+- `api/handlers.go` - rewritten
+- `api/server.go` - routes updated
+- `main.go` - wiring updated
 
 ### Deleted ✅
 - `storage/recommendations_repo.go`
 - `storage/dashboards_repo.go`
-
-### To Do
-- `config/config.go` - simplify
-- `prometheus/client.go` - add service discovery
-- `collector/prometheus_collector.go` - rewrite
-- `api/handlers.go` - rewrite
-- `api/server.go` - update routes
-- `web/src/api.ts` - update types
-- `web/src/App.tsx` - rewrite UI
-- `main.go` - update wiring
-
-### To Remove
 - `analyzer/` directory
 - `grafana/` directory
 - `collector/grafana_collector.go`
+
+### To Do (Frontend)
+- `web/src/api.ts` - update types
+- `web/src/App.tsx` - rewrite UI
 
 ---
 
