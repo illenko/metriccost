@@ -3,214 +3,198 @@ package collector
 import (
 	"context"
 	"log/slog"
-	"sync"
 	"time"
 
-	"github.com/illenko/metriccost/analyzer"
+	"github.com/illenko/metriccost/config"
 	"github.com/illenko/metriccost/models"
 	"github.com/illenko/metriccost/prometheus"
 	"github.com/illenko/metriccost/storage"
 )
 
-type PrometheusCollector struct {
-	client      *prometheus.Client
-	metricsRepo *storage.MetricsRepository
-	snapRepo    *storage.SnapshotsRepository
-	teamMatcher *analyzer.TeamMatcher
-
-	batchSize           int
-	concurrency         int
-	labelFetchThreshold int
+type Collector struct {
+	client       *prometheus.Client
+	snapshots    *storage.SnapshotsRepository
+	services     *storage.ServicesRepository
+	metrics      *storage.MetricsRepository
+	labels       *storage.LabelsRepository
+	serviceLabel string
+	sampleLimit  int
 }
 
-type CollectorConfig struct {
-	BatchSize           int
-	Concurrency         int
-	LabelFetchThreshold int
-}
-
-func NewPrometheusCollector(
+func NewCollector(
 	client *prometheus.Client,
-	metricsRepo *storage.MetricsRepository,
-	snapRepo *storage.SnapshotsRepository,
-	teamMatcher *analyzer.TeamMatcher,
-	cfg CollectorConfig,
-) *PrometheusCollector {
-	if cfg.BatchSize == 0 {
-		cfg.BatchSize = 100
-	}
-	if cfg.Concurrency == 0 {
-		cfg.Concurrency = 5
-	}
-	if cfg.LabelFetchThreshold == 0 {
-		cfg.LabelFetchThreshold = 10000
-	}
-
-	return &PrometheusCollector{
-		client:              client,
-		metricsRepo:         metricsRepo,
-		snapRepo:            snapRepo,
-		teamMatcher:         teamMatcher,
-		batchSize:           cfg.BatchSize,
-		concurrency:         cfg.Concurrency,
-		labelFetchThreshold: cfg.LabelFetchThreshold,
+	snapshots *storage.SnapshotsRepository,
+	services *storage.ServicesRepository,
+	metrics *storage.MetricsRepository,
+	labels *storage.LabelsRepository,
+	cfg *config.Config,
+) *Collector {
+	return &Collector{
+		client:       client,
+		snapshots:    snapshots,
+		services:     services,
+		metrics:      metrics,
+		labels:       labels,
+		serviceLabel: cfg.Discovery.ServiceLabel,
+		sampleLimit:  cfg.Scan.SampleValuesLimit,
 	}
 }
 
 type CollectResult struct {
-	TotalMetrics     int
-	TotalCardinality int64
-	TeamBreakdown    map[string]models.TeamMetrics
-	Duration         time.Duration
-	Errors           []error
+	SnapshotID    int64
+	TotalServices int
+	TotalSeries   int64
+	Duration      time.Duration
 }
 
-func (c *PrometheusCollector) Collect(ctx context.Context) (*CollectResult, error) {
+// ProgressCallback is called to report scan progress
+type ProgressCallback func(phase string, current, total int, detail string)
+
+func (c *Collector) Collect(ctx context.Context, progress ProgressCallback) (*CollectResult, error) {
 	start := time.Now()
 	collectedAt := start.Truncate(time.Second)
 
-	slog.Info("starting prometheus metrics collection")
+	if progress == nil {
+		progress = func(string, int, int, string) {}
+	}
 
-	names, err := c.client.GetAllMetricNames(ctx)
+	slog.Info("starting service discovery", "label", c.serviceLabel)
+	progress("discovering", 0, 0, "Discovering services...")
+
+	// Step 1: Create snapshot
+	snapshot := &models.Snapshot{
+		CollectedAt: collectedAt,
+	}
+	snapshotID, err := c.snapshots.Create(ctx, snapshot)
+	if err != nil {
+		return nil, err
+	}
+	snapshot.ID = snapshotID
+
+	// Step 2: Discover services
+	serviceInfos, err := c.client.DiscoverServices(ctx, c.serviceLabel)
 	if err != nil {
 		return nil, err
 	}
 
-	slog.Info("found metrics", "count", len(names))
+	slog.Info("discovered services", "count", len(serviceInfos))
 
-	result := &CollectResult{
-		TeamBreakdown: make(map[string]models.TeamMetrics),
-	}
+	var totalSeries int64
 
-	var batch []*models.MetricSnapshot
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	sem := make(chan struct{}, c.concurrency)
-
-	saveBatch := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-		if err := c.metricsRepo.SaveBatch(ctx, batch); err != nil {
-			return err
-		}
-		batch = batch[:0]
-		return nil
-	}
-
-	for i, name := range names {
+	// Step 3: For each service, collect metrics and labels
+	for i, svc := range serviceInfos {
 		if ctx.Err() != nil {
-			break
+			return nil, ctx.Err()
 		}
 
-		if (i+1)%100 == 0 || i+1 == len(names) {
-			slog.Info("processing metrics", "progress", i+1, "total", len(names))
+		progress("scanning", i+1, len(serviceInfos), svc.Name)
+		slog.Info("scanning service", "name", svc.Name, "progress", i+1, "total", len(serviceInfos))
+
+		serviceSnapshot, err := c.collectService(ctx, snapshotID, svc)
+		if err != nil {
+			slog.Error("failed to collect service", "name", svc.Name, "error", err)
+			continue
 		}
 
-		wg.Add(1)
-		sem <- struct{}{}
-
-		go func(metricName string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-
-			m, err := c.collectMetric(ctx, metricName, collectedAt)
-			if err != nil {
-				slog.Debug("failed to collect metric", "name", metricName, "error", err)
-				mu.Lock()
-				result.Errors = append(result.Errors, err)
-				mu.Unlock()
-				return
-			}
-
-			mu.Lock()
-			batch = append(batch, m)
-			result.TotalMetrics++
-			result.TotalCardinality += int64(m.Cardinality)
-
-			team := m.Team
-			if team == "" {
-				team = "unassigned"
-			}
-			tm := result.TeamBreakdown[team]
-			tm.Cardinality += int64(m.Cardinality)
-			tm.MetricCount++
-			result.TeamBreakdown[team] = tm
-
-			if len(batch) >= c.batchSize {
-				if err := saveBatch(); err != nil {
-					slog.Error("failed to save batch", "error", err)
-				}
-			}
-			mu.Unlock()
-		}(name)
+		totalSeries += int64(serviceSnapshot.TotalSeries)
 	}
 
-	wg.Wait()
+	// Step 4: Update snapshot with totals
+	snapshot.TotalServices = len(serviceInfos)
+	snapshot.TotalSeries = totalSeries
+	snapshot.ScanDurationMs = int(time.Since(start).Milliseconds())
 
-	if err := saveBatch(); err != nil {
+	if err := c.snapshots.Update(ctx, snapshot); err != nil {
 		return nil, err
 	}
 
-	// Calculate percentages for team breakdown
-	for team, tm := range result.TeamBreakdown {
-		if result.TotalCardinality > 0 {
-			tm.Percentage = float64(tm.Cardinality) / float64(result.TotalCardinality) * 100
-		}
-		result.TeamBreakdown[team] = tm
-	}
-
-	snapshot := &models.Snapshot{
-		CollectedAt:      collectedAt,
-		TotalMetrics:     result.TotalMetrics,
-		TotalCardinality: result.TotalCardinality,
-		TeamBreakdown:    result.TeamBreakdown,
-	}
-
-	if err := c.snapRepo.Save(ctx, snapshot); err != nil {
-		return nil, err
-	}
-
-	result.Duration = time.Since(start)
-
+	duration := time.Since(start)
 	slog.Info("collection complete",
-		"metrics", result.TotalMetrics,
-		"cardinality", result.TotalCardinality,
-		"duration", result.Duration,
-		"errors", len(result.Errors),
+		"services", len(serviceInfos),
+		"total_series", totalSeries,
+		"duration", duration,
 	)
 
-	return result, nil
+	return &CollectResult{
+		SnapshotID:    snapshotID,
+		TotalServices: len(serviceInfos),
+		TotalSeries:   totalSeries,
+		Duration:      duration,
+	}, nil
 }
 
-func (c *PrometheusCollector) collectMetric(ctx context.Context, name string, collectedAt time.Time) (*models.MetricSnapshot, error) {
-	cardinality, err := c.client.GetMetricCardinality(ctx, name)
+func (c *Collector) collectService(ctx context.Context, snapshotID int64, svc prometheus.ServiceInfo) (*models.ServiceSnapshot, error) {
+	// Get metrics for this service
+	metricInfos, err := c.client.GetMetricsForService(ctx, c.serviceLabel, svc.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	team := "unassigned"
-	if c.teamMatcher != nil {
-		team = c.teamMatcher.GetTeam(name)
+	// Create service snapshot
+	serviceSnapshot := &models.ServiceSnapshot{
+		SnapshotID:  snapshotID,
+		ServiceName: svc.Name,
+		TotalSeries: svc.SeriesCount,
+		MetricCount: len(metricInfos),
 	}
 
-	var labels map[string]int
-	if cardinality > 0 && cardinality < c.labelFetchThreshold {
-		labelInfo, err := c.client.GetMetricLabels(ctx, name)
-		if err == nil {
-			labels = make(map[string]int)
-			for _, l := range labelInfo {
-				labels[l.Name] = l.UniqueCount
-			}
+	serviceSnapshotID, err := c.services.Create(ctx, serviceSnapshot)
+	if err != nil {
+		return nil, err
+	}
+	serviceSnapshot.ID = serviceSnapshotID
+
+	// Collect each metric
+	for _, metric := range metricInfos {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		if err := c.collectMetric(ctx, serviceSnapshotID, svc.Name, metric); err != nil {
+			slog.Debug("failed to collect metric", "service", svc.Name, "metric", metric.Name, "error", err)
+			continue
 		}
 	}
 
-	return &models.MetricSnapshot{
-		CollectedAt: collectedAt,
-		MetricName:  name,
-		Cardinality: cardinality,
-		Team:        team,
-		Labels:      labels,
-	}, nil
+	return serviceSnapshot, nil
+}
+
+func (c *Collector) collectMetric(ctx context.Context, serviceSnapshotID int64, serviceName string, metric prometheus.MetricInfo) error {
+	// Get labels for this metric
+	labelInfos, err := c.client.GetLabelsForMetric(ctx, c.serviceLabel, serviceName, metric.Name, c.sampleLimit)
+	if err != nil {
+		// Log but don't fail - we can still store the metric without labels
+		slog.Debug("failed to get labels", "metric", metric.Name, "error", err)
+		labelInfos = nil
+	}
+
+	// Create metric snapshot
+	metricSnapshot := &models.MetricSnapshot{
+		ServiceSnapshotID: serviceSnapshotID,
+		MetricName:        metric.Name,
+		SeriesCount:       metric.SeriesCount,
+		LabelCount:        len(labelInfos),
+	}
+
+	metricSnapshotID, err := c.metrics.Create(ctx, metricSnapshot)
+	if err != nil {
+		return err
+	}
+
+	// Store labels
+	for _, label := range labelInfos {
+		labelSnapshot := &models.LabelSnapshot{
+			MetricSnapshotID:  metricSnapshotID,
+			LabelName:         label.Name,
+			UniqueValuesCount: label.UniqueValues,
+			SampleValues:      label.SampleValues,
+		}
+
+		if _, err := c.labels.Create(ctx, labelSnapshot); err != nil {
+			slog.Debug("failed to store label", "label", label.Name, "error", err)
+			continue
+		}
+	}
+
+	return nil
 }

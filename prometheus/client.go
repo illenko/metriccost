@@ -3,8 +3,8 @@ package prometheus
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -53,54 +53,114 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) GetAllMetricNames(ctx context.Context) ([]string, error) {
-	names, _, err := c.api.LabelValues(ctx, "__name__", nil, time.Time{}, time.Time{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get metric names: %w", err)
-	}
-
-	result := make([]string, len(names))
-	for i, n := range names {
-		result[i] = string(n)
-	}
-
-	return result, nil
+// ServiceInfo represents a discovered service with its series count
+type ServiceInfo struct {
+	Name        string
+	SeriesCount int
 }
 
-func (c *Client) GetMetricCardinality(ctx context.Context, metricName string) (int, error) {
-	query := fmt.Sprintf("count(%s)", metricName)
+// DiscoverServices returns all unique service values for the configured label
+// Query: count({service_label}!="") by ({service_label})
+func (c *Client) DiscoverServices(ctx context.Context, serviceLabel string) ([]ServiceInfo, error) {
+	query := fmt.Sprintf(`count({%s!=""}) by (%s)`, serviceLabel, serviceLabel)
 
 	result, _, err := c.api.Query(ctx, query, time.Now())
 	if err != nil {
-		return 0, fmt.Errorf("failed to get cardinality for %s: %w", metricName, err)
+		return nil, fmt.Errorf("failed to discover services: %w", err)
 	}
 
 	vector, ok := result.(model.Vector)
-	if !ok || len(vector) == 0 {
-		return 0, nil
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: %T", result)
 	}
 
-	return int(vector[0].Value), nil
+	var services []ServiceInfo
+	for _, sample := range vector {
+		serviceName := string(sample.Metric[model.LabelName(serviceLabel)])
+		if serviceName == "" {
+			continue
+		}
+		services = append(services, ServiceInfo{
+			Name:        serviceName,
+			SeriesCount: int(sample.Value),
+		})
+	}
+
+	// Sort by series count descending
+	sort.Slice(services, func(i, j int) bool {
+		return services[i].SeriesCount > services[j].SeriesCount
+	})
+
+	return services, nil
 }
 
-type LabelInfo struct {
+// MetricInfo represents a metric with its series count
+type MetricInfo struct {
 	Name        string
-	UniqueCount int
+	SeriesCount int
 }
 
-func (c *Client) GetMetricLabels(ctx context.Context, metricName string) ([]LabelInfo, error) {
-	series, _, err := c.api.Series(ctx, []string{metricName}, time.Time{}, time.Time{})
+// GetMetricsForService returns all metrics for a specific service
+// Query: count({service_label}="X") by (__name__)
+func (c *Client) GetMetricsForService(ctx context.Context, serviceLabel, serviceName string) ([]MetricInfo, error) {
+	query := fmt.Sprintf(`count({%s="%s"}) by (__name__)`, serviceLabel, serviceName)
+
+	result, _, err := c.api.Query(ctx, query, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metrics for service %s: %w", serviceName, err)
+	}
+
+	vector, ok := result.(model.Vector)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: %T", result)
+	}
+
+	var metrics []MetricInfo
+	for _, sample := range vector {
+		metricName := string(sample.Metric[model.LabelName("__name__")])
+		if metricName == "" {
+			continue
+		}
+		metrics = append(metrics, MetricInfo{
+			Name:        metricName,
+			SeriesCount: int(sample.Value),
+		})
+	}
+
+	// Sort by series count descending
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].SeriesCount > metrics[j].SeriesCount
+	})
+
+	return metrics, nil
+}
+
+// LabelInfo represents a label with its unique value count and sample values
+type LabelInfo struct {
+	Name         string
+	UniqueValues int
+	SampleValues []string
+}
+
+// GetLabelsForMetric returns all label names and their cardinality for a metric within a service
+func (c *Client) GetLabelsForMetric(ctx context.Context, serviceLabel, serviceName, metricName string, sampleLimit int) ([]LabelInfo, error) {
+	// Get all series for this metric in this service
+	selector := fmt.Sprintf(`%s{%s="%s"}`, metricName, serviceLabel, serviceName)
+
+	series, _, err := c.api.Series(ctx, []string{selector}, time.Time{}, time.Time{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get labels for %s: %w", metricName, err)
 	}
 
+	// Collect unique values per label
 	labelValues := make(map[string]map[string]struct{})
 	for _, s := range series {
 		for label, value := range s {
-			if label == "__name__" {
+			labelName := string(label)
+			// Skip internal labels
+			if labelName == "__name__" || labelName == serviceLabel {
 				continue
 			}
-			labelName := string(label)
 			if _, ok := labelValues[labelName]; !ok {
 				labelValues[labelName] = make(map[string]struct{})
 			}
@@ -108,30 +168,33 @@ func (c *Client) GetMetricLabels(ctx context.Context, metricName string) ([]Labe
 		}
 	}
 
+	// Build result with sample values
 	var labels []LabelInfo
 	for name, values := range labelValues {
+		// Extract sample values (up to limit)
+		var samples []string
+		for v := range values {
+			samples = append(samples, v)
+			if len(samples) >= sampleLimit {
+				break
+			}
+		}
+		// Sort samples for consistency
+		sort.Strings(samples)
+
 		labels = append(labels, LabelInfo{
-			Name:        name,
-			UniqueCount: len(values),
+			Name:         name,
+			UniqueValues: len(values),
+			SampleValues: samples,
 		})
 	}
 
+	// Sort by unique values descending
+	sort.Slice(labels, func(i, j int) bool {
+		return labels[i].UniqueValues > labels[j].UniqueValues
+	})
+
 	return labels, nil
-}
-
-type PrometheusConfig struct {
-	ScrapeInterval time.Duration
-}
-
-func (c *Client) GetConfig(ctx context.Context) (*PrometheusConfig, error) {
-	cfg, err := c.api.Config(ctx)
-	if err != nil {
-		slog.Warn("failed to get prometheus config, using defaults", "error", err)
-		return &PrometheusConfig{ScrapeInterval: 15 * time.Second}, nil
-	}
-
-	_ = cfg // Could parse YAML to extract global.scrape_interval
-	return &PrometheusConfig{ScrapeInterval: 15 * time.Second}, nil
 }
 
 type basicAuthTransport struct {

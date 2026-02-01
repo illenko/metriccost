@@ -26,9 +26,9 @@ This plan implements the **pivot** from a metric-centric audit tool to a **servi
 | 1.2 | ✅ Done | Storage layer (repos) |
 | 2.1 | ✅ Done | Data models |
 | 3.1 | ✅ Done | Configuration update |
-| 4.1 | ⬜ Todo | Prometheus client |
-| 5.1 | ⬜ Todo | Collector rewrite |
-| 5.2 | ⬜ Todo | Remove unused code |
+| 4.1 | ✅ Done | Prometheus client |
+| 5.1 | ✅ Done | Collector rewrite |
+| 5.2 | ✅ Done | Remove unused code |
 | 6.1 | ⬜ Todo | API endpoints (snapshot-centric) |
 | 6.2 | ⬜ Todo | Update router |
 | 7.1 | ⬜ Todo | Frontend types |
@@ -96,28 +96,15 @@ This plan implements the **pivot** from a metric-centric audit tool to a **servi
 
 ---
 
-## Phase 4: Prometheus Client
+## Phase 4: Prometheus Client ✅
 
-### 4.1 Add Service Discovery Queries
+### 4.1 Add Service Discovery Queries ✅
 
 **File:** `prometheus/client.go`
 
-**Tasks:**
-- [ ] `DiscoverServices(serviceLabel)` → list services with series count
-- [ ] `GetMetricsForService(serviceLabel, serviceName)` → metrics with series count
-- [ ] `GetLabelsForMetric(...)` → labels with unique value counts
-- [ ] `GetLabelSampleValues(...)` → top N sample values
-
-**Key queries:**
-```promql
-# Discover services
-count({app!=""}) by (app)
-
-# Metrics for service
-count({app="payment-gateway"}) by (__name__)
-
-# Labels for metric (need to use series API)
-```
+- [x] `DiscoverServices(serviceLabel)` → list services with series count
+- [x] `GetMetricsForService(serviceLabel, serviceName)` → metrics with series count
+- [x] `GetLabelsForMetric(...)` → labels with unique values + sample values
 
 ---
 
