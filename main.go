@@ -7,12 +7,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/illenko/metriccost/api"
-	"github.com/illenko/metriccost/collector"
-	"github.com/illenko/metriccost/config"
-	"github.com/illenko/metriccost/prometheus"
-	"github.com/illenko/metriccost/scheduler"
-	"github.com/illenko/metriccost/storage"
+	"github.com/illenko/whodidthis/api"
+	"github.com/illenko/whodidthis/collector"
+	"github.com/illenko/whodidthis/config"
+	"github.com/illenko/whodidthis/prometheus"
+	"github.com/illenko/whodidthis/scheduler"
+	"github.com/illenko/whodidthis/storage"
 )
 
 func main() {

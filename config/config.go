@@ -54,7 +54,7 @@ func Load(path string) (*Config, error) {
 		v.AddConfigPath(".")
 	}
 
-	v.SetEnvPrefix("METRICCOST")
+	v.SetEnvPrefix("whodidthis")
 	v.AutomaticEnv()
 
 	if err := v.ReadInConfig(); err != nil {

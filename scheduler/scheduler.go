@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/illenko/metriccost/collector"
+	"github.com/illenko/whodidthis/collector"
 )
 
 type Scheduler struct {

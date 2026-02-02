@@ -1,9 +1,9 @@
 .PHONY: build run test lint clean build-all
 
-BINARY_NAME=metriccost
+BINARY_NAME=whodidthis
 VERSION?=0.1.0
 BUILD_DIR=bin
-MAIN_PATH=./cmd/metriccost
+MAIN_PATH=./cmd/whodidthis
 
 # Build for current platform
 build:

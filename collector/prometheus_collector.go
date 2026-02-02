@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/illenko/metriccost/config"
-	"github.com/illenko/metriccost/models"
-	"github.com/illenko/metriccost/prometheus"
-	"github.com/illenko/metriccost/storage"
+	"github.com/illenko/whodidthis/config"
+	"github.com/illenko/whodidthis/models"
+	"github.com/illenko/whodidthis/prometheus"
+	"github.com/illenko/whodidthis/storage"
 )
 
 type Collector struct {

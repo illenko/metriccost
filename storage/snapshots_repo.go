@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/illenko/metriccost/models"
+	"github.com/illenko/whodidthis/models"
 )
 
 type SnapshotsRepository struct {

@@ -1,6 +1,6 @@
 # Binaries
 bin/
-metriccost
+whodidthis
 *.exe
 *.exe~
 *.dll
@@ -41,5 +41,5 @@ tmp/
 node_modules/
 web/dist/
 /api/dist/
-/metriccost.db-shm
-/metriccost.db-wal
+/whodidthis.db-shm
+/whodidthis.db-wal

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/illenko/metriccost/models"
+	"github.com/illenko/whodidthis/models"
 )
 
 type MetricsRepository struct {

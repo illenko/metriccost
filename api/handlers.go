@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/illenko/metriccost/models"
-	"github.com/illenko/metriccost/scheduler"
-	"github.com/illenko/metriccost/storage"
+	"github.com/illenko/whodidthis/models"
+	"github.com/illenko/whodidthis/scheduler"
+	"github.com/illenko/whodidthis/storage"
 )
 
 type Handlers struct {
