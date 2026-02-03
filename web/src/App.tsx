@@ -16,9 +16,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
-      <Header scanStatus={scanStatus} onScan={triggerScan} />
+      <Header />
       <main className="max-w-6xl mx-auto px-6 py-8">
-        <Router route={route} />
+        <Router route={route} scanStatus={scanStatus} onScan={triggerScan} />
       </main>
     </div>
   )

@@ -1,4 +1,5 @@
 import type { Route } from '../lib/router'
+import type { ScanStatus } from '../api'
 import { ScansPage } from '../pages/ScansPage'
 import { ServicesPage } from '../pages/ServicesPage'
 import { MetricsPage } from '../pages/MetricsPage'
@@ -7,12 +8,14 @@ import { AnalysisPage } from '../pages/AnalysisPage'
 
 interface RouterProps {
   route: Route
+  scanStatus: ScanStatus | null
+  onScan: () => void
 }
 
-export function Router({ route }: RouterProps) {
+export function Router({ route, scanStatus, onScan }: RouterProps) {
   switch (route.page) {
     case 'scans':
-      return <ScansPage />
+      return <ScansPage scanStatus={scanStatus} onScan={onScan} />
     case 'services':
       return <ServicesPage scanId={route.scanId} />
     case 'metrics':

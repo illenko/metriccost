@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
-import type { Scan, Service } from '../api'
+import type { Scan, Service, ScanStatus } from '../api'
 import { navigate } from '../lib/router'
 import { formatNumber, formatDate } from '../lib/format'
 import { useDebounce } from '../hooks/useDebounce'
@@ -8,8 +8,14 @@ import { DataTable, type Column } from '../components/DataTable'
 import { Loading, EmptyState } from '../components/Loading'
 import { Input } from '../components/Input'
 import { Select } from '../components/Select'
+import { Button } from '../components/Button'
 
-export function ScansPage() {
+interface ScansPageProps {
+  scanStatus: ScanStatus | null
+  onScan: () => void
+}
+
+export function ScansPage({ scanStatus, onScan }: ScansPageProps) {
   const [scans, setScans] = useState<Scan[]>([])
   const [selectedScanId, setSelectedScanId] = useState<number | null>(null)
   const [services, setServices] = useState<Service[]>([])
@@ -91,6 +97,8 @@ export function ScansPage() {
 
   return (
     <div className="space-y-6">
+      <ScanStatusBanner status={scanStatus} onScan={onScan} />
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4 flex-wrap">
           <Select
@@ -124,6 +132,49 @@ export function ScansPage() {
         keyExtractor={(svc) => svc.id}
         onRowClick={handleRowClick}
       />
+    </div>
+  )
+}
+
+function ScanStatusBanner({ status, onScan }: { status: ScanStatus | null; onScan: () => void }) {
+  if (!status) return null
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+      {status.running ? (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" aria-hidden="true" />
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Scan in progress</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400" aria-live="polite">{status.progress || 'Scanning...'}</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-6 flex-wrap">
+            <StatusItem label="Last scan" value={status.last_scan_at ? formatDate(status.last_scan_at) : 'Never'} />
+            {status.last_duration && <StatusItem label="Duration" value={status.last_duration} />}
+            {status.next_scan_at && <StatusItem label="Next scan" value={formatDate(status.next_scan_at)} />}
+            {status.total_services > 0 && <StatusItem label="Services" value={formatNumber(status.total_services)} />}
+            {status.total_series > 0 && <StatusItem label="Series" value={formatNumber(status.total_series)} />}
+          </div>
+          <Button onClick={onScan} size="sm" aria-label="Trigger a new scan">Run Scan</Button>
+        </div>
+      )}
+      {!status.running && status.last_error && (
+        <div className="mt-2 text-xs text-red-600 dark:text-red-400">Last error: {status.last_error}</div>
+      )}
+    </div>
+  )
+}
+
+function StatusItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{value}</div>
     </div>
   )
 }

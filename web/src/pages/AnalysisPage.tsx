@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import Markdown from 'react-markdown'
 import { api } from '../api'
 import type { Scan, SnapshotAnalysis, AnalysisGlobalStatus, AnalysisStatusType } from '../api'
 import { navigate } from '../lib/router'
@@ -7,6 +8,42 @@ import { Breadcrumb } from '../components/Breadcrumb'
 import { Button } from '../components/Button'
 import { Loading, EmptyState } from '../components/Loading'
 import { Select } from '../components/Select'
+
+const markdownComponents = {
+  h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3 mt-4 first:mt-0" {...props}>{children}</h1>
+  ),
+  h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 mt-4 first:mt-0" {...props}>{children}</h2>
+  ),
+  h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2 mt-3" {...props}>{children}</h3>
+  ),
+  p: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+    <p className="text-sm text-gray-800 dark:text-gray-200 mb-2 leading-relaxed" {...props}>{children}</p>
+  ),
+  ul: ({ children, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
+    <ul className="list-disc list-outside ml-5 mb-3 space-y-1 text-sm text-gray-800 dark:text-gray-200" {...props}>{children}</ul>
+  ),
+  ol: ({ children, ...props }: React.HTMLAttributes<HTMLOListElement>) => (
+    <ol className="list-decimal list-outside ml-5 mb-3 space-y-1 text-sm text-gray-800 dark:text-gray-200" {...props}>{children}</ol>
+  ),
+  li: ({ children, ...props }: React.HTMLAttributes<HTMLLIElement>) => (
+    <li className="leading-relaxed" {...props}>{children}</li>
+  ),
+  strong: ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => (
+    <strong className="font-semibold text-gray-900 dark:text-gray-100" {...props}>{children}</strong>
+  ),
+  code: ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => (
+    <code className="font-mono text-xs bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-1.5 py-0.5 rounded" {...props}>{children}</code>
+  ),
+  pre: ({ children, ...props }: React.HTMLAttributes<HTMLPreElement>) => (
+    <pre className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 mb-3 overflow-x-auto text-xs font-mono text-gray-800 dark:text-gray-200" {...props}>{children}</pre>
+  ),
+  hr: (props: React.HTMLAttributes<HTMLHRElement>) => (
+    <hr className="border-gray-200 dark:border-gray-700 my-4" {...props} />
+  ),
+}
 
 interface AnalysisPageProps {
   currentId?: number
@@ -223,10 +260,8 @@ export function AnalysisPage({ currentId: initialCurrentId, previousId: initialP
           </div>
 
           {analysis.status === 'completed' && analysis.result && (
-            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              <pre className="whitespace-pre-wrap font-mono text-sm text-gray-900 dark:text-gray-100 overflow-x-auto">
-                {analysis.result}
-              </pre>
+            <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5">
+              <Markdown components={markdownComponents}>{analysis.result}</Markdown>
             </div>
           )}
 
