@@ -35,7 +35,7 @@ export interface Label {
 
 export interface ScanStatus {
   running: boolean
-  progress: string
+  progress: ScanProgress
   last_scan_at: string
   last_duration: string
   last_error: string
@@ -48,6 +48,13 @@ export interface HealthStatus {
   status: string
   database_ok: boolean
   last_scan: string
+}
+
+export interface ScanProgress {
+  phase: string
+  current: number
+  total: number
+  detail: string
 }
 
 export type AnalysisStatusType = 'pending' | 'running' | 'completed' | 'failed'
