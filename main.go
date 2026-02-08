@@ -65,6 +65,7 @@ func run() error {
 		URL:      cfg.Prometheus.URL,
 		Username: cfg.Prometheus.Username,
 		Password: cfg.Prometheus.Password,
+		Timeout:  cfg.Prometheus.Timeout,
 	})
 	if err != nil {
 		return fmt.Errorf("create prometheus client: %w", err)

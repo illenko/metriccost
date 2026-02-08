@@ -3,6 +3,7 @@ package prometheus
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"sort"
 	"time"
@@ -31,10 +32,24 @@ type Config struct {
 }
 
 func NewClient(cfg Config) (*Client, error) {
-	var transport = http.DefaultTransport
+	timeout := cfg.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
 
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: timeout,
+		MaxIdleConns:          10,
+		IdleConnTimeout:       90 * time.Second,
+	}
+
+	var rt http.RoundTripper = transport
 	if cfg.Username != "" && cfg.Password != "" {
-		transport = &basicAuthTransport{
+		rt = &basicAuthTransport{
 			transport: transport,
 			username:  cfg.Username,
 			password:  cfg.Password,
@@ -43,7 +58,7 @@ func NewClient(cfg Config) (*Client, error) {
 
 	apiCfg := api.Config{
 		Address:      cfg.URL,
-		RoundTripper: transport,
+		RoundTripper: rt,
 	}
 
 	client, err := api.NewClient(apiCfg)
