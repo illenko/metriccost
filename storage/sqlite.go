@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"sort"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -55,13 +56,32 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) migrate() error {
+	if _, err := db.conn.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+		version TEXT PRIMARY KEY,
+		applied_at TEXT NOT NULL
+	)`); err != nil {
+		return fmt.Errorf("failed to create schema_migrations table: %w", err)
+	}
+
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
 		return fmt.Errorf("failed to read migrations: %w", err)
 	}
 
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
 	for _, entry := range entries {
 		if entry.IsDir() {
+			continue
+		}
+
+		var count int
+		if err := db.conn.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE version = ?", entry.Name()).Scan(&count); err != nil {
+			return fmt.Errorf("failed to check migration %s: %w", entry.Name(), err)
+		}
+		if count > 0 {
 			continue
 		}
 
@@ -70,10 +90,26 @@ func (db *DB) migrate() error {
 			return fmt.Errorf("failed to read migration %s: %w", entry.Name(), err)
 		}
 
-		slog.Debug("running migration", "file", entry.Name())
+		slog.Info("applying migration", "file", entry.Name())
 
-		if _, err := db.conn.Exec(string(content)); err != nil {
+		tx, err := db.conn.Begin()
+		if err != nil {
+			return fmt.Errorf("failed to begin transaction for migration %s: %w", entry.Name(), err)
+		}
+
+		if _, err := tx.Exec(string(content)); err != nil {
+			tx.Rollback()
 			return fmt.Errorf("failed to execute migration %s: %w", entry.Name(), err)
+		}
+
+		if _, err := tx.Exec("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+			entry.Name(), time.Now().Format(time.RFC3339)); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to record migration %s: %w", entry.Name(), err)
+		}
+
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("failed to commit migration %s: %w", entry.Name(), err)
 		}
 	}
 

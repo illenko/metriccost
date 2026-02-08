@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/illenko/whodidthis/models"
@@ -142,7 +143,7 @@ func (r *AnalysisRepository) scanOne(row *sql.Row) (*models.SnapshotAnalysis, er
 		&createdAt,
 		&completedAt,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

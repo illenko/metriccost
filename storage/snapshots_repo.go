@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/illenko/whodidthis/models"
@@ -132,7 +133,7 @@ func (r *SnapshotsRepository) scanOne(row *sql.Row) (*models.Snapshot, error) {
 	var scanDuration sql.NullInt64
 
 	err := row.Scan(&s.ID, &collectedAt, &scanDuration, &s.TotalServices, &s.TotalSeries)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

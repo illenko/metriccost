@@ -3,6 +3,9 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 
 	"github.com/illenko/whodidthis/models"
 )
@@ -27,7 +30,7 @@ func (r *ServicesRepository) Create(ctx context.Context, s *models.ServiceSnapsh
 		s.MetricCount,
 	)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("insert service snapshot: %w", err)
 	}
 	return result.LastInsertId()
 }
@@ -35,23 +38,26 @@ func (r *ServicesRepository) Create(ctx context.Context, s *models.ServiceSnapsh
 func (r *ServicesRepository) CreateBatch(ctx context.Context, services []*models.ServiceSnapshot) error {
 	tx, err := r.db.conn.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			slog.Error("failed to rollback services batch", "error", err)
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO service_snapshots (snapshot_id, service_name, total_series, metric_count)
 		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare stmt: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, s := range services {
-		_, err = stmt.ExecContext(ctx, s.SnapshotID, s.ServiceName, s.TotalSeries, s.MetricCount)
-		if err != nil {
-			return err
+		if _, err = stmt.ExecContext(ctx, s.SnapshotID, s.ServiceName, s.TotalSeries, s.MetricCount); err != nil {
+			return fmt.Errorf("insert service %s: %w", s.ServiceName, err)
 		}
 	}
 
@@ -119,7 +125,7 @@ func (r *ServicesRepository) GetByName(ctx context.Context, snapshotID int64, na
 	err := r.db.conn.QueryRowContext(ctx, query, snapshotID, name).Scan(
 		&s.ID, &s.SnapshotID, &s.ServiceName, &s.TotalSeries, &s.MetricCount,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {

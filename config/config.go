@@ -77,6 +77,8 @@ func Load(path string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
+	bindEnvs(v)
+
 	if err := v.ReadInConfig(); err != nil {
 		slog.Warn("no config file found, using env vars and defaults", "error", err)
 	}
@@ -93,6 +95,32 @@ func Load(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+func bindEnvs(v *viper.Viper) {
+	keys := []string{
+		"prometheus.url",
+		"prometheus.username",
+		"prometheus.password",
+		"prometheus.timeout",
+		"discovery.service_label",
+		"scan.interval",
+		"scan.sample_values_limit",
+		"scan.concurrency",
+		"storage.path",
+		"storage.retention_days",
+		"server.port",
+		"server.host",
+		"log.level",
+		"gemini.api_key",
+		"gemini.model",
+		"gemini.timeout",
+		"gemini.chat.temperature",
+		"gemini.chat.max_output_tokens",
+	}
+	for _, key := range keys {
+		v.BindEnv(key)
+	}
 }
 
 func (c *Config) applyDefaults() {

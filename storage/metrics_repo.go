@@ -3,6 +3,9 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 
 	"github.com/illenko/whodidthis/models"
 )
@@ -27,7 +30,7 @@ func (r *MetricsRepository) Create(ctx context.Context, m *models.MetricSnapshot
 		m.LabelCount,
 	)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("insert metric snapshot: %w", err)
 	}
 	return result.LastInsertId()
 }
@@ -35,23 +38,26 @@ func (r *MetricsRepository) Create(ctx context.Context, m *models.MetricSnapshot
 func (r *MetricsRepository) CreateBatch(ctx context.Context, metrics []*models.MetricSnapshot) error {
 	tx, err := r.db.conn.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			slog.Error("failed to rollback metrics batch", "error", err)
+		}
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO metric_snapshots (service_snapshot_id, metric_name, series_count, label_count)
 		VALUES (?, ?, ?, ?)
 	`)
 	if err != nil {
-		return err
+		return fmt.Errorf("prepare stmt: %w", err)
 	}
 	defer stmt.Close()
 
 	for _, m := range metrics {
-		_, err = stmt.ExecContext(ctx, m.ServiceSnapshotID, m.MetricName, m.SeriesCount, m.LabelCount)
-		if err != nil {
-			return err
+		if _, err = stmt.ExecContext(ctx, m.ServiceSnapshotID, m.MetricName, m.SeriesCount, m.LabelCount); err != nil {
+			return fmt.Errorf("insert metric %s: %w", m.MetricName, err)
 		}
 	}
 
@@ -112,7 +118,7 @@ func (r *MetricsRepository) GetByName(ctx context.Context, serviceSnapshotID int
 	err := r.db.conn.QueryRowContext(ctx, query, serviceSnapshotID, name).Scan(
 		&m.ID, &m.ServiceSnapshotID, &m.MetricName, &m.SeriesCount, &m.LabelCount,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
