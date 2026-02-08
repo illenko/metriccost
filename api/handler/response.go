@@ -1,4 +1,4 @@
-package helpers
+package handler
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-func ParseIntParam(r *http.Request, name string, defaultVal int) int {
+func parseIntParam(r *http.Request, name string, defaultVal int) int {
 	val := r.URL.Query().Get(name)
 	if val == "" {
 		return defaultVal
@@ -19,7 +19,7 @@ func ParseIntParam(r *http.Request, name string, defaultVal int) int {
 	return n
 }
 
-func WriteJSON(w http.ResponseWriter, status int, data any) {
+func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
@@ -27,6 +27,6 @@ func WriteJSON(w http.ResponseWriter, status int, data any) {
 	}
 }
 
-func WriteError(w http.ResponseWriter, status int, message string) {
-	WriteJSON(w, status, map[string]string{"error": message})
+func writeError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, map[string]string{"error": message})
 }

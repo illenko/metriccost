@@ -4,16 +4,15 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/illenko/whodidthis/api/helpers"
 	"github.com/illenko/whodidthis/models"
 	"github.com/illenko/whodidthis/storage"
 )
 
 type ServicesHandler struct {
-	servicesRepo *storage.ServicesRepository
+	servicesRepo storage.ServicesRepo
 }
 
-func NewServicesHandler(servicesRepo *storage.ServicesRepository) *ServicesHandler {
+func NewServicesHandler(servicesRepo storage.ServicesRepo) *ServicesHandler {
 	return &ServicesHandler{
 
 		servicesRepo: servicesRepo,
@@ -25,7 +24,7 @@ func (s *ServicesHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	scanID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid scan id")
+		writeError(w, http.StatusBadRequest, "invalid scan id")
 		return
 	}
 
@@ -37,7 +36,7 @@ func (s *ServicesHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	services, err := s.servicesRepo.List(ctx, scanID, opts)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -45,7 +44,7 @@ func (s *ServicesHandler) List(w http.ResponseWriter, r *http.Request) {
 		services = []models.ServiceSnapshot{}
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, services)
+	writeJSON(w, http.StatusOK, services)
 }
 
 func (s *ServicesHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +52,7 @@ func (s *ServicesHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	scanID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid scan id")
+		writeError(w, http.StatusBadRequest, "invalid scan id")
 		return
 	}
 
@@ -61,14 +60,14 @@ func (s *ServicesHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	service, err := s.servicesRepo.GetByName(ctx, scanID, serviceName)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if service == nil {
-		helpers.WriteError(w, http.StatusNotFound, "service not found")
+		writeError(w, http.StatusNotFound, "service not found")
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, service)
+	writeJSON(w, http.StatusOK, service)
 }

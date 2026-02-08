@@ -12,6 +12,13 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+type MetricsClient interface {
+	HealthCheck(ctx context.Context) error
+	DiscoverServices(ctx context.Context, serviceLabel string) ([]ServiceInfo, error)
+	GetMetricsForService(ctx context.Context, serviceLabel, serviceName string) ([]MetricInfo, error)
+	GetLabelsForMetric(ctx context.Context, serviceLabel, serviceName, metricName string, sampleLimit int) ([]LabelInfo, error)
+}
+
 type Client struct {
 	api v1.API
 }

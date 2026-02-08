@@ -4,18 +4,17 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/illenko/whodidthis/api/helpers"
 	"github.com/illenko/whodidthis/models"
 	"github.com/illenko/whodidthis/storage"
 )
 
 type LabelsHandler struct {
-	servicesRepo *storage.ServicesRepository
-	metricsRepo  *storage.MetricsRepository
-	labelsRepo   *storage.LabelsRepository
+	servicesRepo storage.ServicesRepo
+	metricsRepo  storage.MetricsRepo
+	labelsRepo   storage.LabelsRepo
 }
 
-func NewLabelsHandler(servicesRepo *storage.ServicesRepository, metricsRepo *storage.MetricsRepository, labelsRepo *storage.LabelsRepository) *LabelsHandler {
+func NewLabelsHandler(servicesRepo storage.ServicesRepo, metricsRepo storage.MetricsRepo, labelsRepo storage.LabelsRepo) *LabelsHandler {
 	return &LabelsHandler{
 		servicesRepo: servicesRepo,
 		metricsRepo:  metricsRepo,
@@ -28,7 +27,7 @@ func (h *LabelsHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	scanID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid scan id")
+		writeError(w, http.StatusBadRequest, "invalid scan id")
 		return
 	}
 
@@ -37,27 +36,27 @@ func (h *LabelsHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	service, err := h.servicesRepo.GetByName(ctx, scanID, serviceName)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if service == nil {
-		helpers.WriteError(w, http.StatusNotFound, "service not found")
+		writeError(w, http.StatusNotFound, "service not found")
 		return
 	}
 
 	metric, err := h.metricsRepo.GetByName(ctx, service.ID, metricName)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if metric == nil {
-		helpers.WriteError(w, http.StatusNotFound, "metric not found")
+		writeError(w, http.StatusNotFound, "metric not found")
 		return
 	}
 
 	labels, err := h.labelsRepo.List(ctx, metric.ID)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -65,5 +64,5 @@ func (h *LabelsHandler) List(w http.ResponseWriter, r *http.Request) {
 		labels = []models.LabelSnapshot{}
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, labels)
+	writeJSON(w, http.StatusOK, labels)
 }

@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/illenko/whodidthis/analyzer"
-	"github.com/illenko/whodidthis/api/helpers"
 	"github.com/illenko/whodidthis/models"
 )
 
@@ -22,7 +21,7 @@ func NewAnalysisHandler(analyzer *analyzer.Analyzer) *AnalysisHandler {
 
 func (a *AnalysisHandler) Start(w http.ResponseWriter, r *http.Request) {
 	if a.analyzer == nil {
-		helpers.WriteError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
+		writeError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
 		return
 	}
 
@@ -31,68 +30,68 @@ func (a *AnalysisHandler) Start(w http.ResponseWriter, r *http.Request) {
 		PreviousSnapshotID int64 `json:"previous_snapshot_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid request body")
+		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	if req.CurrentSnapshotID == 0 || req.PreviousSnapshotID == 0 {
-		helpers.WriteError(w, http.StatusBadRequest, "current_snapshot_id and previous_snapshot_id are required")
+		writeError(w, http.StatusBadRequest, "current_snapshot_id and previous_snapshot_id are required")
 		return
 	}
 
 	analysis, err := a.analyzer.StartAnalysis(r.Context(), req.CurrentSnapshotID, req.PreviousSnapshotID)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusAccepted, analysis)
+	writeJSON(w, http.StatusAccepted, analysis)
 }
 
 func (a *AnalysisHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if a.analyzer == nil {
-		helpers.WriteError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
+		writeError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
 		return
 	}
 
 	currentID, err := strconv.ParseInt(r.URL.Query().Get("current"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid current parameter")
+		writeError(w, http.StatusBadRequest, "invalid current parameter")
 		return
 	}
 	previousID, err := strconv.ParseInt(r.URL.Query().Get("previous"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid previous parameter")
+		writeError(w, http.StatusBadRequest, "invalid previous parameter")
 		return
 	}
 
 	analysis, err := a.analyzer.GetAnalysis(r.Context(), currentID, previousID)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if analysis == nil {
-		helpers.WriteError(w, http.StatusNotFound, "analysis not found")
+		writeError(w, http.StatusNotFound, "analysis not found")
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, analysis)
+	writeJSON(w, http.StatusOK, analysis)
 }
 
 func (a *AnalysisHandler) ListBySnapshot(w http.ResponseWriter, r *http.Request) {
 	if a.analyzer == nil {
-		helpers.WriteError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
+		writeError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
 		return
 	}
 
 	snapshotID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid scan id")
+		writeError(w, http.StatusBadRequest, "invalid scan id")
 		return
 	}
 
 	analyses, err := a.analyzer.ListAnalyses(r.Context(), snapshotID)
 	if err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -100,40 +99,40 @@ func (a *AnalysisHandler) ListBySnapshot(w http.ResponseWriter, r *http.Request)
 		analyses = []models.SnapshotAnalysis{}
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, analyses)
+	writeJSON(w, http.StatusOK, analyses)
 }
 
 func (a *AnalysisHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if a.analyzer == nil {
-		helpers.WriteError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
+		writeError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
 		return
 	}
 
 	currentID, err := strconv.ParseInt(r.URL.Query().Get("current"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid current parameter")
+		writeError(w, http.StatusBadRequest, "invalid current parameter")
 		return
 	}
 	previousID, err := strconv.ParseInt(r.URL.Query().Get("previous"), 10, 64)
 	if err != nil {
-		helpers.WriteError(w, http.StatusBadRequest, "invalid previous parameter")
+		writeError(w, http.StatusBadRequest, "invalid previous parameter")
 		return
 	}
 
 	if err := a.analyzer.DeleteAnalysis(r.Context(), currentID, previousID); err != nil {
-		helpers.WriteError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 func (a *AnalysisHandler) GetStatus(w http.ResponseWriter, _ *http.Request) {
 	if a.analyzer == nil {
-		helpers.WriteError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
+		writeError(w, http.StatusServiceUnavailable, "analysis not configured (missing Gemini API key)")
 		return
 	}
 
 	status := a.analyzer.GetGlobalStatus()
-	helpers.WriteJSON(w, http.StatusOK, status)
+	writeJSON(w, http.StatusOK, status)
 }

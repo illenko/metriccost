@@ -14,11 +14,11 @@ import (
 )
 
 type Collector struct {
-	client       *prometheus.Client
-	snapshots    *storage.SnapshotsRepository
-	services     *storage.ServicesRepository
-	metrics      *storage.MetricsRepository
-	labels       *storage.LabelsRepository
+	client       prometheus.MetricsClient
+	snapshots    storage.SnapshotsRepo
+	services     storage.ServicesRepo
+	metrics      storage.MetricsRepo
+	labels       storage.LabelsRepo
 	serviceLabel string
 	sampleLimit  int
 	concurrency  int
@@ -26,11 +26,11 @@ type Collector struct {
 }
 
 func NewCollector(
-	client *prometheus.Client,
-	snapshots *storage.SnapshotsRepository,
-	services *storage.ServicesRepository,
-	metrics *storage.MetricsRepository,
-	labels *storage.LabelsRepository,
+	client prometheus.MetricsClient,
+	snapshots storage.SnapshotsRepo,
+	services storage.ServicesRepo,
+	metrics storage.MetricsRepo,
+	labels storage.LabelsRepo,
 	cfg *config.Config,
 ) *Collector {
 	return &Collector{

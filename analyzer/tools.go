@@ -9,12 +9,12 @@ import (
 )
 
 type ToolExecutor struct {
-	services *storage.ServicesRepository
-	metrics  *storage.MetricsRepository
-	labels   *storage.LabelsRepository
+	services storage.ServicesRepo
+	metrics  storage.MetricsRepo
+	labels   storage.LabelsRepo
 }
 
-func NewToolExecutor(services *storage.ServicesRepository, metrics *storage.MetricsRepository, labels *storage.LabelsRepository) *ToolExecutor {
+func NewToolExecutor(services storage.ServicesRepo, metrics storage.MetricsRepo, labels storage.LabelsRepo) *ToolExecutor {
 	return &ToolExecutor{
 		services: services,
 		metrics:  metrics,

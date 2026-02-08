@@ -2,11 +2,10 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/illenko/whodidthis/api/helpers"
 )
 
 const requestTimeout = 30 * time.Second
@@ -30,7 +29,9 @@ func withMiddleware(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				slog.Error("panic recovered", "error", err)
-				helpers.WriteError(sw, http.StatusInternalServerError, "internal server error")
+				sw.Header().Set("Content-Type", "application/json")
+				sw.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(sw).Encode(map[string]string{"error": "internal server error"})
 			}
 		}()
 

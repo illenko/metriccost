@@ -3,21 +3,20 @@ package handler
 import (
 	"net/http"
 
-	"github.com/illenko/whodidthis/api/helpers"
 	"github.com/illenko/whodidthis/models"
 	"github.com/illenko/whodidthis/prometheus"
 	"github.com/illenko/whodidthis/storage"
 )
 
 type HealthHandler struct {
-	snapshots  *storage.SnapshotsRepository
+	snapshots  storage.SnapshotsRepo
 	db         *storage.DB
-	promClient *prometheus.Client
+	promClient prometheus.MetricsClient
 }
 
-func NewHealthHandler(snapshots *storage.SnapshotsRepository,
+func NewHealthHandler(snapshots storage.SnapshotsRepo,
 	db *storage.DB,
-	promClient *prometheus.Client) *HealthHandler {
+	promClient prometheus.MetricsClient) *HealthHandler {
 	return &HealthHandler{
 		snapshots:  snapshots,
 		db:         db,
@@ -53,5 +52,5 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 		status.LastScan = latest.CollectedAt
 	}
 
-	helpers.WriteJSON(w, http.StatusOK, status)
+	writeJSON(w, http.StatusOK, status)
 }
